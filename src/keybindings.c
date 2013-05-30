@@ -907,6 +907,31 @@ static GtkWidget *create_dialog(void)
 }
 
 
+static void key_dialog_show_prefs()
+{
+	GtkWidget *wid;
+
+	prefs_show_dialog();
+	/* select the KB page */
+	wid = ui_lookup_widget(ui_widgets.prefs_dialog, "frame22");
+	if (wid != NULL)
+	{
+		GtkNotebook *nb = GTK_NOTEBOOK(ui_lookup_widget(ui_widgets.prefs_dialog, "notebook2"));
+		if (nb != NULL)
+		{
+			gtk_notebook_set_current_page(nb, gtk_notebook_page_num(nb, wid));
+		}
+	}
+}
+
+
+void keybindings_dialog_show_prefs_scroll(const gchar *name)
+{
+	key_dialog_show_prefs();
+	prefs_kb_search_name(name);
+}
+
+
 /* non-modal keyboard shortcuts dialog, so user can edit whilst seeing the shortcuts */
 static GtkWidget *key_dialog = NULL;
 
@@ -914,18 +939,7 @@ static void on_dialog_response(GtkWidget *dialog, gint response, gpointer user_d
 {
 	if (response == GTK_RESPONSE_APPLY)
 	{
-		GtkWidget *wid;
-
-		prefs_show_dialog();
-		/* select the KB page */
-		wid = ui_lookup_widget(ui_widgets.prefs_dialog, "frame22");
-		if (wid != NULL)
-		{
-			GtkNotebook *nb = GTK_NOTEBOOK(ui_lookup_widget(ui_widgets.prefs_dialog, "notebook2"));
-
-			if (nb != NULL)
-				gtk_notebook_set_current_page(nb, gtk_notebook_page_num(nb, wid));
-		}
+		key_dialog_show_prefs();
 	}
 	gtk_widget_destroy(dialog);
 	key_dialog = NULL;
@@ -1700,7 +1714,7 @@ static gboolean cb_func_switch_action(guint key_id)
 
 static void switch_notebook_page(gint direction)
 {
-	gint page_count, cur_page;
+	gint page_count, cur_page, pass;
 	gboolean parent_is_notebook = FALSE;
 	GtkNotebook *notebook;
 	GtkWidget *focusw = gtk_window_get_focus(GTK_WINDOW(main_widgets.window));
@@ -1722,19 +1736,33 @@ static void switch_notebook_page(gint direction)
 	page_count = gtk_notebook_get_n_pages(notebook);
 	cur_page = gtk_notebook_get_current_page(notebook);
 
-	if (direction == GTK_DIR_LEFT)
+	/* find the next visible page in the wanted direction, but don't loop
+	 * indefinitely if no pages are visible */
+	for (pass = 0; pass < page_count; pass++)
 	{
-		if (cur_page > 0)
-			gtk_notebook_set_current_page(notebook, cur_page - 1);
-		else
-			gtk_notebook_set_current_page(notebook, page_count - 1);
-	}
-	else if (direction == GTK_DIR_RIGHT)
-	{
-		if (cur_page < page_count - 1)
-			gtk_notebook_set_current_page(notebook, cur_page + 1);
-		else
-			gtk_notebook_set_current_page(notebook, 0);
+		GtkWidget *child;
+
+		if (direction == GTK_DIR_LEFT)
+		{
+			if (cur_page > 0)
+				cur_page--;
+			else
+				cur_page = page_count - 1;
+		}
+		else if (direction == GTK_DIR_RIGHT)
+		{
+			if (cur_page < page_count - 1)
+				cur_page++;
+			else
+				cur_page = 0;
+		}
+
+		child = gtk_notebook_get_nth_page (notebook, cur_page);
+		if (gtk_widget_get_visible (child))
+		{
+			gtk_notebook_set_current_page(notebook, cur_page);
+			break;
+		}
 	}
 }
 
