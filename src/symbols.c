@@ -285,6 +285,9 @@ GString *symbols_find_tags_as_string(GPtrArray *tags_array, guint tag_types, gin
  * type.
  * @param ft_id File type identifier.
  * @return The context separator string.
+ * 
+ * Returns non-printing sequence "\x03" ie ETX (end of text) for filetypes
+ * without a context separator.
  *
  * @since 0.19
  */
@@ -302,6 +305,10 @@ const gchar *symbols_get_context_separator(gint ft_id)
 		case GEANY_FILETYPES_CONF:
 		case GEANY_FILETYPES_REST:
 			return ":::";
+
+		/* no context separator */
+		case GEANY_FILETYPES_ASCIIDOC:
+			return "\x03";
 
 		default:
 			return ".";
@@ -2037,7 +2044,6 @@ static gboolean current_tag_changed(GeanyDocument *doc, gint cur_line, gint fold
 static gchar *parse_function_at_line(ScintillaObject *sci, gint tag_line)
 {
 	gint start, end, max_pos;
-	gchar *cur_tag;
 	gint fn_style;
 
 	switch (sci_get_lexer(sci))
@@ -2057,9 +2063,7 @@ static gchar *parse_function_at_line(ScintillaObject *sci, gint tag_line)
 
 	if (start == end)
 		return NULL;
-	cur_tag = g_malloc(end - start + 1);
-	sci_get_text_range(sci, start, end, cur_tag);
-	return cur_tag;
+	return sci_get_contents_range(sci, start, end);
 }
 
 
@@ -2069,7 +2073,6 @@ static gchar *parse_cpp_function_at_line(ScintillaObject *sci, gint tag_line)
 	gint start, end, first_pos, max_pos;
 	gint tmp;
 	gchar c;
-	gchar *cur_tag;
 
 	first_pos = end = sci_get_position_from_line(sci, tag_line);
 	max_pos = sci_get_position_from_line(sci, tag_line + 1);
@@ -2101,9 +2104,7 @@ static gchar *parse_cpp_function_at_line(ScintillaObject *sci, gint tag_line)
 	if (start != 0 && start < end) start++;	/* correct for last non-matching char */
 
 	if (start == end) return NULL;
-	cur_tag = g_malloc(end - start + 2);
-	sci_get_text_range(sci, start, end + 1, cur_tag);
-	return cur_tag;
+	return sci_get_contents_range(sci, start, end + 1);
 }
 
 
@@ -2387,7 +2388,7 @@ static void create_taglist_popup_menu(void)
 	gtk_container_add(GTK_CONTAINER(menu), item);
 	g_signal_connect(item, "activate", G_CALLBACK(on_find_usage), symbol_menu.find_doc_usage);
 
-	symbol_menu.find_in_files = item = ui_image_menu_item_new(GTK_STOCK_FIND, _("Find in F_iles"));
+	symbol_menu.find_in_files = item = ui_image_menu_item_new(GTK_STOCK_FIND, _("Find in F_iles..."));
 	gtk_widget_show(item);
 	gtk_container_add(GTK_CONTAINER(menu), item);
 	g_signal_connect(item, "activate", G_CALLBACK(on_find_usage), NULL);
