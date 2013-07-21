@@ -299,6 +299,7 @@ const gchar *symbols_get_context_separator(gint ft_id)
 		case GEANY_FILETYPES_CPP:
 		case GEANY_FILETYPES_GLSL:	/* for structs */
 		/*case GEANY_FILETYPES_RUBY:*/ /* not sure what to use atm*/
+		case GEANY_FILETYPES_PHP:
 			return "::";
 
 		/* avoid confusion with other possible separators in group/section name */
@@ -788,11 +789,13 @@ static void add_top_level_items(GeanyDocument *doc)
 		case GEANY_FILETYPES_PHP:
 		{
 			tag_list_add_groups(tag_store,
+				&(tv_iters.tag_namespace), _("Namespaces"), "classviewer-namespace",
 				&(tv_iters.tag_interface), _("Interfaces"), "classviewer-struct",
 				&(tv_iters.tag_class), _("Classes"), "classviewer-class",
 				&(tv_iters.tag_function), _("Functions"), "classviewer-method",
 				&(tv_iters.tag_macro), _("Constants"), "classviewer-macro",
 				&(tv_iters.tag_variable), _("Variables"), "classviewer-var",
+				&(tv_iters.tag_struct), _("Traits"), "classviewer-struct",
 				NULL);
 			break;
 		}
@@ -902,6 +905,7 @@ static void add_top_level_items(GeanyDocument *doc)
 				&(tv_iters.tag_class), _("Classes"), "classviewer-class",
 				&(tv_iters.tag_function), _("Methods"), "classviewer-method",
 				&(tv_iters.tag_member), _("Members"), "classviewer-member",
+				&(tv_iters.tag_type), _("Enums"), "classviewer-struct",
 				&(tv_iters.tag_other), _("Other"), "classviewer-other",
 				NULL);
 			break;
@@ -985,6 +989,7 @@ static void add_top_level_items(GeanyDocument *doc)
 				&(tv_iters.tag_macro), _("Triggers"), "classviewer-macro",
 				&(tv_iters.tag_member), _("Views"), "classviewer-var",
 				&(tv_iters.tag_other), _("Other"), "classviewer-other",
+				&(tv_iters.tag_variable), _("Variables"), "classviewer-var",
 				NULL);
 			break;
 		}
@@ -2054,12 +2059,12 @@ static gchar *parse_function_at_line(ScintillaObject *sci, gint tag_line)
 	}
 	start = sci_get_position_from_line(sci, tag_line - 2);
 	max_pos = sci_get_position_from_line(sci, tag_line + 1);
-	while (sci_get_style_at(sci, start) != fn_style
-		&& start < max_pos) start++;
+	while (start < max_pos && sci_get_style_at(sci, start) != fn_style)
+		start++;
 
 	end = start;
-	while (sci_get_style_at(sci, end) == fn_style
-		&& end < max_pos) end++;
+	while (end < max_pos && sci_get_style_at(sci, end) == fn_style)
+		end++;
 
 	if (start == end)
 		return NULL;
@@ -2094,7 +2099,6 @@ static gchar *parse_cpp_function_at_line(ScintillaObject *sci, gint tag_line)
 	while (end > 0 && isspace(sci_get_char_at(sci, end))) end--;
 
 	start = end;
-	c = 0;
 	/* Use tmp to find SCE_C_IDENTIFIER or SCE_C_GLOBALCLASS chars */
 	while (start >= 0 && ((tmp = sci_get_style_at(sci, start)) == SCE_C_IDENTIFIER
 		 ||  tmp == SCE_C_GLOBALCLASS

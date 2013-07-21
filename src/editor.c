@@ -665,6 +665,7 @@ static gboolean match_last_chars(ScintillaObject *sci, gint pos, const gchar *st
 	gchar *buf;
 
 	g_return_val_if_fail(len < 100, FALSE);
+	g_return_val_if_fail(len <= pos, FALSE);
 
 	buf = g_alloca(len + 1);
 	sci_get_text_range(sci, pos - len, pos, buf);
@@ -718,6 +719,8 @@ static void autocomplete_scope(GeanyEditor *editor)
 	{
 		if (match_last_chars(sci, pos, "->") || match_last_chars(sci, pos, "::"))
 			pos--;
+		else if (ft->id == GEANY_FILETYPES_CPP && match_last_chars(sci, pos, "->*"))
+			pos-=2;
 		else if (typed != '.')
 			return;
 	}
@@ -1754,13 +1757,11 @@ editor_read_word_stem(GeanyEditor *editor, gint pos, const gchar *wordchars)
 
 static gint find_previous_brace(ScintillaObject *sci, gint pos)
 {
-	gchar c;
 	gint orig_pos = pos;
 
-	c = sci_get_char_at(sci, pos);
 	while (pos >= 0 && pos > orig_pos - 300)
 	{
-		c = sci_get_char_at(sci, pos);
+		gchar c = sci_get_char_at(sci, pos);
 		if (utils_is_opening_brace(c, editor_prefs.brace_match_ltgt))
 			return pos;
 		pos--;
