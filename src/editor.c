@@ -647,7 +647,7 @@ static void show_tags_list(GeanyEditor *editor, const GPtrArray *tags, gsize roo
 			g_string_append(words, tag->name);
 
 			/* for now, tag types don't all follow C, so just look at arglist */
-			if (NZV(tag->atts.entry.arglist))
+			if (!EMPTY(tag->atts.entry.arglist))
 				g_string_append(words, "?2");
 			else
 				g_string_append(words, "?1");
@@ -665,7 +665,7 @@ static gboolean match_last_chars(ScintillaObject *sci, gint pos, const gchar *st
 	gchar *buf;
 
 	g_return_val_if_fail(len < 100, FALSE);
-	g_return_val_if_fail(len <= pos, FALSE);
+	g_return_val_if_fail((gint)len <= pos, FALSE);
 
 	buf = g_alloca(len + 1);
 	sci_get_text_range(sci, pos - len, pos, buf);
@@ -1389,7 +1389,7 @@ static gint get_xml_indent(ScintillaObject *sci, gint line)
 			gchar *line_contents = sci_get_contents_range(sci, start, end + 1);
 			gchar *opened_tag_name = utils_find_open_xml_tag(line_contents, end + 1 - start);
 
-			if (NZV(opened_tag_name))
+			if (!EMPTY(opened_tag_name))
 			{
 				need_close = TRUE;
 				if (sci_get_lexer(sci) == SCLEX_HTML && utils_is_short_html_tag(opened_tag_name))
@@ -1823,7 +1823,7 @@ static gboolean append_calltip(GString *str, const TMTag *tag, filetype_id ft_id
 		g_string_append_c(str, ' ');
 		g_string_append(str, tag->atts.entry.arglist);
 
-		if (NZV(tag->atts.entry.var_type))
+		if (!EMPTY(tag->atts.entry.var_type))
 		{
 			g_string_append(str, " : ");
 			g_string_append(str, tag->atts.entry.var_type);
@@ -2593,7 +2593,7 @@ gboolean editor_complete_snippet(GeanyEditor *editor, gint pos)
 	word = editor_read_word_stem(editor, pos, wc);
 
 	/* prevent completion of "for " */
-	if (NZV(word) &&
+	if (!EMPTY(word) &&
 		! isspace(sci_get_char_at(sci, pos - 1))) /* pos points to the line end char so use pos -1 */
 	{
 		sci_start_undo_action(sci);	/* needed because we insert a space separately from construct */
@@ -2699,7 +2699,7 @@ static gboolean handle_xml(GeanyEditor *editor, gint pos, gchar ch)
 	{
 		/* ignore tag */
 	}
-	else if (NZV(str_found))
+	else if (!EMPTY(str_found))
 	{
 		insert_closing_tag(editor, pos, ch, str_found);
 		result = TRUE;
@@ -2900,7 +2900,9 @@ static gint get_multiline_comment_style(GeanyEditor *editor, gint line_start)
 				style_comment = SCE_H_COMMENT;
 			break;
 		}
-		case SCLEX_HASKELL: style_comment = SCE_HA_COMMENTBLOCK; break;
+		case SCLEX_HASKELL:
+		case SCLEX_LITERATEHASKELL:
+			style_comment = SCE_HA_COMMENTBLOCK; break;
 		case SCLEX_LUA: style_comment = SCE_LUA_COMMENT; break;
 		case SCLEX_CSS: style_comment = SCE_CSS_COMMENT; break;
 		case SCLEX_SQL: style_comment = SCE_SQL_COMMENT; break;
@@ -2979,7 +2981,7 @@ gint editor_do_uncomment(GeanyEditor *editor, gint line, gboolean toggle)
 		if (x < line_len && sel[x] != '\0')
 		{
 			/* use single line comment */
-			if (! NZV(cc))
+			if (EMPTY(cc))
 			{
 				single_line = TRUE;
 
@@ -3100,7 +3102,7 @@ void editor_do_comment_toggle(GeanyEditor *editor)
 		while (isspace(sel[x])) x++;
 
 		/* use single line comment */
-		if (! NZV(cc))
+		if (EMPTY(cc))
 		{
 			gboolean do_continue = FALSE;
 			single_line = TRUE;
@@ -3275,7 +3277,7 @@ void editor_do_comment(GeanyEditor *editor, gint line, gboolean allow_empty_line
 		if (allow_empty_lines || (x < line_len && sel[x] != '\0'))
 		{
 			/* use single line comment */
-			if (! NZV(cc))
+			if (EMPTY(cc))
 			{
 				gint start = line_start;
 				single_line = TRUE;
@@ -3542,7 +3544,7 @@ void editor_insert_multiline_comment(GeanyEditor *editor)
 
 	if (! filetype_get_comment_open_close(editor->document->file_type, FALSE, &co, &cc))
 		g_return_if_reached();
-	if (NZV(cc))
+	if (!EMPTY(cc))
 		have_multiline_comment = TRUE;
 
 	sci_start_undo_action(editor->sci);
@@ -4859,7 +4861,7 @@ static void on_document_save(GObject *obj, GeanyDocument *doc)
 {
 	gchar *f = g_build_filename(app->configdir, "snippets.conf", NULL);
 
-	g_return_if_fail(NZV(doc->real_path));
+	g_return_if_fail(!EMPTY(doc->real_path));
 
 	if (utils_str_equal(doc->real_path, f))
 	{

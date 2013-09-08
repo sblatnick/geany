@@ -196,6 +196,27 @@ static const HLKeyword highlighting_keywords_BASIC[] =
 #define highlighting_properties_BASIC	EMPTY_PROPERTIES
 
 
+/* BATCH */
+#define highlighting_lexer_BATCH		SCLEX_BATCH
+static const HLStyle highlighting_styles_BATCH[] =
+{
+	{ SCE_BAT_DEFAULT,		"default",		FALSE },
+	{ SCE_BAT_COMMENT,		"comment",		FALSE },
+	{ SCE_BAT_LABEL,		"label",		FALSE },
+	{ SCE_BAT_WORD,			"word",			FALSE },
+	{ SCE_BAT_HIDE,			"hide",			FALSE },
+	{ SCE_BAT_COMMAND,		"command",		FALSE },
+	{ SCE_BAT_IDENTIFIER,	"identifier",	FALSE },
+	{ SCE_BAT_OPERATOR,		"operator",		FALSE }
+};
+static const HLKeyword highlighting_keywords_BATCH[] =
+{
+	{ 0, "keywords",			FALSE },
+	{ 1, "keywords_optional",	FALSE }
+};
+#define highlighting_properties_BATCH	EMPTY_PROPERTIES
+
+
 /* C */
 /* Also used by some other SCLEX_CPP-based filetypes */
 #define highlighting_lexer_C		SCLEX_CPP
@@ -621,7 +642,9 @@ static const HLStyle highlighting_styles_HASKELL[] =
 };
 static const HLKeyword highlighting_keywords_HASKELL[] =
 {
-	{ 0, "keywords",	FALSE }
+	{ 0, "keywords",		   FALSE },
+	{ 1, "ffi",				   FALSE },
+	{ 2, "reserved_operators", FALSE }
 };
 #define highlighting_properties_HASKELL		EMPTY_PROPERTIES
 
@@ -1131,6 +1154,40 @@ static const HLStyle highlighting_styles_PO[] =
 };
 #define highlighting_keywords_PO	EMPTY_KEYWORDS
 #define highlighting_properties_PO	EMPTY_PROPERTIES
+
+
+/* PowerShell */
+#define highlighting_lexer_POWERSHELL		SCLEX_POWERSHELL
+static const HLStyle highlighting_styles_POWERSHELL[] =
+{
+	{ SCE_POWERSHELL_DEFAULT,			"default",				FALSE },
+	{ SCE_POWERSHELL_COMMENT,			"comment",				FALSE },
+	{ SCE_POWERSHELL_STRING,			"string",				FALSE },
+	{ SCE_POWERSHELL_CHARACTER,			"character",			FALSE },
+	{ SCE_POWERSHELL_NUMBER,			"number",				FALSE },
+	{ SCE_POWERSHELL_VARIABLE,			"variable",				FALSE },
+	{ SCE_POWERSHELL_OPERATOR,			"operator",				FALSE },
+	{ SCE_POWERSHELL_IDENTIFIER,		"identifier",			FALSE },
+	{ SCE_POWERSHELL_KEYWORD,			"keyword",				FALSE },
+	{ SCE_POWERSHELL_CMDLET,			"cmdlet",				FALSE },
+	{ SCE_POWERSHELL_ALIAS,				"alias",				FALSE },
+	{ SCE_POWERSHELL_FUNCTION,			"function",				FALSE },
+	{ SCE_POWERSHELL_USER1,				"user1",				FALSE },
+	{ SCE_POWERSHELL_COMMENTSTREAM,		"commentstream",		FALSE },
+	{ SCE_POWERSHELL_HERE_STRING,		"here_string",			FALSE },
+	{ SCE_POWERSHELL_HERE_CHARACTER,	"here_character",		FALSE },
+	{ SCE_POWERSHELL_COMMENTDOCKEYWORD,	"commentdockeyword",	FALSE },
+};
+static const HLKeyword highlighting_keywords_POWERSHELL[] =
+{
+	{ 0, "keywords",	FALSE },
+	{ 1, "cmdlets",		FALSE },
+	{ 2, "aliases",		FALSE },
+	{ 3, "functions",	FALSE },
+	{ 4, "user1",		FALSE },
+	{ 5, "docComment",	FALSE },
+};
+#define highlighting_properties_POWERSHELL	EMPTY_PROPERTIES
 
 
 /* Python */

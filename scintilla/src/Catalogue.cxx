@@ -85,6 +85,7 @@ int Scintilla_LinkLexers() {
 	LINK_LEXER(lmAda);
 	LINK_LEXER(lmAsm);
 	LINK_LEXER(lmBash);
+	LINK_LEXER(lmBatch);
 	LINK_LEXER(lmCaml);
 	LINK_LEXER(lmCmake);
 	LINK_LEXER(lmCOBOL);
@@ -111,6 +112,7 @@ int Scintilla_LinkLexers() {
 	LINK_LEXER(lmPascal);
 	LINK_LEXER(lmPerl);
 	LINK_LEXER(lmPO);
+	LINK_LEXER(lmPowerShell);
 	LINK_LEXER(lmProps);
 	LINK_LEXER(lmPython);
 	LINK_LEXER(lmR);

@@ -875,21 +875,19 @@ static void load_dialog_prefs(GKeyFile *config)
 
 	template_prefs.version = utils_get_setting_string(config, PACKAGE, "pref_template_version", "1.0");
 
-	tmp_string2 = utils_get_hostname();
-	tmp_string = g_strdup_printf("%s@%s", g_get_user_name(), tmp_string2);
+	tmp_string = g_strdup_printf("%s@%s", g_get_user_name(), g_get_host_name());
 	template_prefs.mail = utils_get_setting_string(config, PACKAGE, "pref_template_mail", tmp_string);
 	g_free(tmp_string);
-	g_free(tmp_string2);
 	template_prefs.year_format = utils_get_setting_string(config, PACKAGE, "pref_template_year", GEANY_TEMPLATES_FORMAT_YEAR);
 	template_prefs.date_format = utils_get_setting_string(config, PACKAGE, "pref_template_date", GEANY_TEMPLATES_FORMAT_DATE);
 	template_prefs.datetime_format = utils_get_setting_string(config, PACKAGE, "pref_template_datetime", GEANY_TEMPLATES_FORMAT_DATETIME);
 
 	/* tools */
 	cmd = utils_get_setting_string(config, "tools", "terminal_cmd", "");
-	if (!NZV(cmd))
+	if (EMPTY(cmd))
 	{
 		cmd = utils_get_setting_string(config, "tools", "term_cmd", "");
-		if (NZV(cmd))
+		if (!EMPTY(cmd))
 		{
 			tmp_string = cmd;
 #ifdef G_OS_WIN32
@@ -920,8 +918,15 @@ static void load_dialog_prefs(GKeyFile *config)
 	/* printing */
 	tmp_string2 = g_find_program_in_path(GEANY_DEFAULT_TOOLS_PRINTCMD);
 #ifdef G_OS_WIN32
-	/* single quote paths on Win32 for g_spawn_command_line_async */
-	tmp_string = g_strconcat("'", tmp_string2, "' '%f'", NULL);
+	if (!EMPTY(tmp_string2))
+	{
+		/* single quote paths on Win32 for g_spawn_command_line_async */
+		tmp_string = g_strconcat("'", tmp_string2, "' '%f'", NULL);
+	}
+	else
+	{
+		tmp_string = g_strdup("");
+	}
 #else
 	tmp_string = g_strconcat(tmp_string2, " %f", NULL);
 #endif

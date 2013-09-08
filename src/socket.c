@@ -272,7 +272,7 @@ gint socket_init(gint argc, gchar **argv)
 		return -1;
 #else
 	gchar *display_name = gdk_get_display();
-	gchar *hostname = utils_get_hostname();
+	const gchar *hostname = g_get_host_name();
 	gchar *p;
 
 	if (display_name == NULL)
@@ -293,7 +293,6 @@ gint socket_init(gint argc, gchar **argv)
 			app->configdir, G_DIR_SEPARATOR, hostname, display_name);
 
 	g_free(display_name);
-	g_free(hostname);
 
 	/* check whether the real user id is the same as this of the socket file */
 	check_socket_permissions();
@@ -624,7 +623,7 @@ gboolean socket_lock_input_cb(GIOChannel *source, GIOCondition condition, gpoint
 		else if (strncmp(buf, "doclist", 7) == 0)
 		{
 			gchar *doc_list = build_document_list();
-			if (NZV(doc_list))
+			if (!EMPTY(doc_list))
 				socket_fd_write_all(sock, doc_list, strlen(doc_list));
 			else
 				/* send ETX (end-of-text) in case we have no open files, we must send anything
@@ -762,7 +761,11 @@ static gint socket_fd_check_io(gint fd, GIOCondition cond)
 #endif
 
 	FD_ZERO(&fds);
+#ifdef G_OS_WIN32
+	FD_SET((SOCKET)fd, &fds);
+#else
 	FD_SET(fd, &fds);
+#endif
 
 	if (cond == G_IO_IN)
 	{

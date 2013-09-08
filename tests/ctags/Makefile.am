@@ -13,6 +13,7 @@ test_sources = \
 	3526726.tex						\
 	68hc11.asm						\
 	angle_bracket.cpp				\
+	anonymous_functions.php			\
 	array_ref_and_out.cs			\
 	array_spec.f90					\
 	array-spec.f90					\
@@ -220,6 +221,7 @@ test_sources = \
 	state_machine.v					\
 	static_array.c					\
 	stdcall.f						\
+	strings.php						\
 	strings.rb						\
 	structure.f						\
 	tabindent.py					\
@@ -229,6 +231,7 @@ test_sources = \
 	traits.php						\
 	union.f							\
 	value.f							\
+	whitespaces.php					\
 	$(NULL)
 test_results = $(test_sources:=.tags)
 
