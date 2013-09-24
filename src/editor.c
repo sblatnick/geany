@@ -1700,8 +1700,8 @@ void editor_find_current_word_sciwc(GeanyEditor *editor, gint pos, gchar *word, 
 	if (pos == -1)
 		pos = sci_get_current_position(editor->sci);
 
-	start = SSM(editor->sci, SCI_WORDSTARTPOSITION, pos, TRUE);
-	end = SSM(editor->sci, SCI_WORDENDPOSITION, pos, TRUE);
+	start = sci_word_start_position(editor->sci, pos, TRUE);
+	end = sci_word_end_position(editor->sci, pos, TRUE);
 
 	if (start == end) /* caret in whitespaces sequence */
 		*word = 0;
@@ -2114,14 +2114,14 @@ static GSList *get_doc_words(ScintillaObject *sci, gchar *root, gsize rootlen)
 		word_end = pos_find + rootlen;
 		if (pos_find != current)
 		{
-			word_end = SSM(sci, SCI_WORDENDPOSITION, word_end, TRUE);
+			word_end = sci_word_end_position(sci, word_end, TRUE);
 
 			word_length = word_end - pos_find;
 			if (word_length > rootlen)
 			{
 				word = sci_get_contents_range(sci, pos_find, word_end);
 				/* search whether we already have the word in, otherwise add it */
-				if (g_slist_find_custom(words, word, (GCompareFunc)utils_str_casecmp) != NULL)
+				if (g_slist_find_custom(words, word, (GCompareFunc)strcmp) != NULL)
 					g_free(word);
 				else
 				{
@@ -2155,7 +2155,7 @@ static gboolean autocomplete_doc_word(GeanyEditor *editor, gchar *root, gsize ro
 		return FALSE;
 	}
 
-	str = g_string_sized_new(editor_prefs.autocompletion_max_entries * (rootlen + 1));
+	str = g_string_sized_new(rootlen * 2 * 10);
 	foreach_slist(node, words)
 	{
 		g_string_append(str, node->data);
@@ -3657,15 +3657,15 @@ void editor_select_word(GeanyEditor *editor)
 	g_return_if_fail(editor != NULL);
 
 	pos = SSM(editor->sci, SCI_GETCURRENTPOS, 0, 0);
-	start = SSM(editor->sci, SCI_WORDSTARTPOSITION, pos, TRUE);
-	end = SSM(editor->sci, SCI_WORDENDPOSITION, pos, TRUE);
+	start = sci_word_start_position(editor->sci, pos, TRUE);
+	end = sci_word_end_position(editor->sci, pos, TRUE);
 
 	if (start == end) /* caret in whitespaces sequence */
 	{
 		/* look forward but reverse the selection direction,
 		 * so the caret end up stay as near as the original position. */
-		end = SSM(editor->sci, SCI_WORDENDPOSITION, pos, FALSE);
-		start = SSM(editor->sci, SCI_WORDENDPOSITION, end, TRUE);
+		end = sci_word_end_position(editor->sci, pos, FALSE);
+		start = sci_word_end_position(editor->sci, end, TRUE);
 		if (start == end)
 			return;
 	}
