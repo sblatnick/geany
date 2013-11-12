@@ -863,16 +863,12 @@ gchar *utils_get_setting_string(GKeyFile *config, const gchar *section, const gc
 
 gchar *utils_get_hex_from_color(GdkColor *color)
 {
-	gchar *buffer = g_malloc0(9);
-
 	g_return_val_if_fail(color != NULL, NULL);
 
-	g_snprintf(buffer, 8, "#%02X%02X%02X",
-	      (guint) (utils_scale_round(color->red / 256, 255)),
-	      (guint) (utils_scale_round(color->green / 256, 255)),
-	      (guint) (utils_scale_round(color->blue / 256, 255)));
-
-	return buffer;
+	return g_strdup_printf("#%02X%02X%02X",
+		(guint) (utils_scale_round(color->red / 256, 255)),
+		(guint) (utils_scale_round(color->green / 256, 255)),
+		(guint) (utils_scale_round(color->blue / 256, 255)));
 }
 
 
@@ -1802,13 +1798,13 @@ gboolean utils_is_remote_path(const gchar *path)
  * @see tm_get_real_path() - also resolves links. */
 void utils_tidy_path(gchar *filename)
 {
-	GString *str = g_string_new(filename);
-	const gchar *c, *needle;
-	gchar *tmp;
-	gssize pos;
+	GString *str;
+	const gchar *needle;
 	gboolean preserve_double_backslash = FALSE;
 
 	g_return_if_fail(g_path_is_absolute(filename));
+
+	str = g_string_new(filename);
 
 	if (str->len >= 2 && strncmp(str->str, "\\\\", 2) == 0)
 		preserve_double_backslash = TRUE;
@@ -1828,11 +1824,13 @@ void utils_tidy_path(gchar *filename)
 	needle = G_DIR_SEPARATOR_S ".." G_DIR_SEPARATOR_S;
 	while (1)
 	{
-		c = strstr(str->str, needle);
+		const gchar *c = strstr(str->str, needle);
 		if (c == NULL)
 			break;
 		else
 		{
+			gssize pos, sub_len;
+
 			pos = c - str->str;
 			if (pos <= 3)
 				break;	/* bad path */
@@ -1841,17 +1839,20 @@ void utils_tidy_path(gchar *filename)
 			g_string_erase(str, pos, strlen(needle));
 			g_string_insert_c(str, pos, G_DIR_SEPARATOR);
 
-			tmp = g_strndup(str->str, pos);	/* path up to "/../" */
-			c = g_strrstr(tmp, G_DIR_SEPARATOR_S);
-			g_return_if_fail(c);
+			/* search for last "/" before found "/../" */
+			c = g_strrstr_len(str->str, pos, G_DIR_SEPARATOR_S);
+			sub_len = pos - (c - str->str);
+			if (! c)
+				break;	/* bad path */
 
-			pos = c - tmp;	/* position of previous "/" */
-			g_string_erase(str, pos, strlen(c));
-			g_free(tmp);
+			pos = c - str->str;	/* position of previous "/" */
+			g_string_erase(str, pos, sub_len);
 		}
 	}
-	g_return_if_fail(strlen(str->str) <= strlen(filename));
-	strcpy(filename, str->str);
+	if (str->len <= strlen(filename))
+		memcpy(filename, str->str, str->len + 1);
+	else
+		g_warn_if_reached();
 	g_string_free(str, TRUE);
 }
 

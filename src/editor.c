@@ -1273,6 +1273,7 @@ static gboolean lexer_has_braces(ScintillaObject *sci)
 		case SCLEX_BASH:
 		case SCLEX_PERL:
 		case SCLEX_TCL:
+		case SCLEX_R:
 			return TRUE;
 		default:
 			return FALSE;
@@ -3973,7 +3974,7 @@ void editor_indentation_by_one_space(GeanyEditor *editor, gint pos, gboolean dec
 }
 
 
-void editor_finalize()
+void editor_finalize(void)
 {
 	scintilla_release_resources();
 }
@@ -4860,8 +4861,6 @@ void editor_destroy(GeanyEditor *editor)
 static void on_document_save(GObject *obj, GeanyDocument *doc)
 {
 	gchar *f = g_build_filename(app->configdir, "snippets.conf", NULL);
-
-	g_return_if_fail(!EMPTY(doc->real_path));
 
 	if (utils_str_equal(doc->real_path, f))
 	{

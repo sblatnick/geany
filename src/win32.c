@@ -800,7 +800,7 @@ static FILE *open_std_handle(DWORD handle, const char *mode)
 }
 
 
-static void debug_setup_console()
+static void debug_setup_console(void)
 {
 	static const WORD MAX_CONSOLE_LINES = 500;
 	CONSOLE_SCREEN_BUFFER_INFO coninfo;
@@ -1023,6 +1023,9 @@ gboolean _broken_win32_spawn(const gchar *dir, gchar **argv, gchar **env, GSpawn
 }
 
 
+/* Note: g_spawn is broken for receiving both stdio and stderr e.g. when
+ * running make and there are compile errors. See glib/giowin32.c header
+ * comment about Windows bugs, e.g. #338943 */
 /* Simple replacement for _broken_win32_spawn().
  * flags is ignored, G_SPAWN_SEARCH_PATH is implied.
  * Don't call this function directly, use utils_spawn_[a]sync() instead.
