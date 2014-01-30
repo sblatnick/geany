@@ -338,6 +338,8 @@ static GeanyBuildCommand *get_next_build_cmd(GeanyDocument *doc, guint cmdgrp, g
 	GeanyFiletype *ft = NULL;
 	guint sink, *fr = &sink;
 
+	g_return_val_if_fail(doc == NULL || doc->is_valid, NULL);
+
 	if (printbuildcmds)
 		printfcmds();
 	if (cmdgrp >= GEANY_GBG_COUNT)
@@ -716,6 +718,8 @@ static gchar *build_replace_placeholder(const GeanyDocument *doc, const gchar *s
 	gchar *executable = NULL;
 	gchar *ret_str; /* to be freed when not in use anymore */
 
+	g_return_val_if_fail(doc == NULL || doc->is_valid, NULL);
+
 	stack = g_string_new(src);
 	if (doc != NULL && doc->file_name != NULL)
 	{
@@ -779,6 +783,8 @@ static GPid build_spawn_cmd(GeanyDocument *doc, const gchar *cmd, const gchar *d
 	gint stdout_fd;
 	gint stderr_fd;
 #endif
+
+	g_return_val_if_fail(doc == NULL || doc->is_valid, (GPid) -1);
 
 	if (!((doc != NULL && !EMPTY(doc->file_name)) || !EMPTY(dir)))
 	{
@@ -942,7 +948,7 @@ static GPid build_run_cmd(GeanyDocument *doc, guint cmdindex)
 	gchar *vte_cmd_nonscript = NULL;
 	GError *error = NULL;
 
-	if (doc == NULL || doc->file_name == NULL)
+	if (! DOC_VALID(doc) || doc->file_name == NULL)
 		return (GPid) 0;
 
 	working_dir = prepare_run_script(doc, &vte_cmd_nonscript, cmdindex);
@@ -995,6 +1001,7 @@ static GPid build_run_cmd(GeanyDocument *doc, guint cmdindex)
 		gchar *locale_term_cmd = NULL;
 		gint argv_len, i;
 		gchar **argv = NULL;
+		gchar *script_path = NULL;
 
 		/* get the terminal path */
 		locale_term_cmd = utils_get_locale_from_utf8(tool_prefs.term_cmd);
@@ -1005,6 +1012,8 @@ static GPid build_run_cmd(GeanyDocument *doc, guint cmdindex)
 				_("Could not parse terminal command \"%s\" "
 					"(check Terminal tool setting in Preferences)"), tool_prefs.term_cmd);
 			run_info[cmdindex].pid = (GPid) 1;
+			script_path = g_build_filename(working_dir, RUN_SCRIPT_CMD, NULL);
+			g_unlink(script_path);
 			goto free_strings;
 		}
 
@@ -1022,6 +1031,8 @@ static GPid build_run_cmd(GeanyDocument *doc, guint cmdindex)
 				_("Could not find terminal \"%s\" "
 					"(check path for Terminal tool setting in Preferences)"), tool_prefs.term_cmd);
 			run_info[cmdindex].pid = (GPid) 1;
+			script_path = g_build_filename(working_dir, RUN_SCRIPT_CMD, NULL);
+			g_unlink(script_path);
 			goto free_strings;
 		}
 
@@ -1035,8 +1046,9 @@ static GPid build_run_cmd(GeanyDocument *doc, guint cmdindex)
 		{
 			geany_debug("g_spawn_async() failed: %s", error->message);
 			ui_set_statusbar(TRUE, _("Process failed (%s)"), error->message);
-			g_unlink(RUN_SCRIPT_CMD);
 			g_error_free(error);
+			script_path = g_build_filename(working_dir, RUN_SCRIPT_CMD, NULL);
+			g_unlink(script_path);
 			error = NULL;
 			run_info[cmdindex].pid = (GPid) 0;
 		}
@@ -1050,6 +1062,7 @@ static GPid build_run_cmd(GeanyDocument *doc, guint cmdindex)
 		free_strings:
 		g_strfreev(argv);
 		g_free(locale_term_cmd);
+		g_free(script_path);
 	}
 
 	g_free(working_dir);
@@ -1576,6 +1589,8 @@ void build_menu_update(GeanyDocument *doc)
 	gboolean can_compile, can_build, can_make, run_sensitivity = FALSE, run_running = FALSE;
 	GeanyBuildCommand *bc;
 
+	g_return_if_fail(doc == NULL || doc->is_valid);
+
 	if (menu_items.menu == NULL)
 		create_build_menu(&menu_items);
 	if (doc == NULL)
@@ -1969,6 +1984,8 @@ static RowWidgets *build_add_dialog_row(GeanyDocument *doc, GtkTable *table, gui
 	enum GeanyBuildCmdEntries i;
 	guint column = 0;
 	gchar *text;
+
+	g_return_val_if_fail(doc == NULL || doc->is_valid, NULL);
 
 	text = g_strdup_printf("%d.", cmd + 1);
 	label = gtk_label_new(text);

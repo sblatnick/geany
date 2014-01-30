@@ -356,7 +356,7 @@ void tools_execute_custom_command(GeanyDocument *doc, const gchar *command)
 	gint stdout_fd;
 	gint stderr_fd;
 
-	g_return_if_fail(doc != NULL && command != NULL);
+	g_return_if_fail(DOC_VALID(doc) && command != NULL);
 
 	if (! sci_has_selection(doc->editor->sci))
 		editor_select_lines(doc->editor, FALSE);
@@ -697,7 +697,7 @@ static void cc_on_custom_command_activate(GtkMenuItem *menuitem, gpointer user_d
 	GeanyDocument *doc = document_get_current();
 	gint command_idx;
 
-	g_return_if_fail(doc != NULL);
+	g_return_if_fail(DOC_VALID(doc));
 
 	command_idx = GPOINTER_TO_INT(user_data);
 
@@ -732,8 +732,11 @@ static void cc_insert_custom_command_items(GtkMenu *me, const gchar *label, cons
 	if (key_idx != -1)
 	{
 		kb = keybindings_lookup_item(GEANY_KEY_GROUP_FORMAT, key_idx);
-		gtk_widget_add_accelerator(item, "activate", gtk_accel_group_new(),
-			kb->key, kb->mods, GTK_ACCEL_VISIBLE);
+		if (kb->key > 0)
+		{
+			gtk_widget_add_accelerator(item, "activate", gtk_accel_group_new(),
+				kb->key, kb->mods, GTK_ACCEL_VISIBLE);
+		}
 	}
 	gtk_container_add(GTK_CONTAINER(me), item);
 	gtk_widget_show(item);
@@ -980,7 +983,7 @@ void tools_color_chooser(const gchar *color)
 #ifdef G_OS_WIN32
 	win32_show_color_dialog(color);
 #else
-	gchar *c = (gchar*) color;
+	GdkColor gc;
 	GtkWidget *colorsel;
 
 	if (ui_widgets.open_colorsel == NULL)
@@ -999,16 +1002,8 @@ void tools_color_chooser(const gchar *color)
 	else
 		colorsel = gtk_color_selection_dialog_get_color_selection(GTK_COLOR_SELECTION_DIALOG(ui_widgets.open_colorsel));
 	/* if color is non-NULL set it in the dialog as preselected color */
-	if (c != NULL && (c[0] == '0' || c[0] == '#'))
+	if (color != NULL && utils_parse_color(color, &gc))
 	{
-		GdkColor gc;
-
-		if (c[0] == '0' && c[1] == 'x')
-		{	/* we have a string of the format "0x00ff00" and we need it to "#00ff00" */
-			c[1] = '#';
-			c++;
-		}
-		gdk_color_parse(c, &gc);
 		gtk_color_selection_set_current_color(GTK_COLOR_SELECTION(colorsel), &gc);
 		gtk_color_selection_set_previous_color(GTK_COLOR_SELECTION(colorsel), &gc);
 	}

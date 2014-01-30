@@ -321,7 +321,6 @@ static GtkWidget *add_file_open_extra_widget(GtkWidget *dialog)
 	/* the ebox is for the tooltip, because gtk_combo_box can't show tooltips */
 	filetype_ebox = gtk_event_box_new();
 	filetype_combo = gtk_combo_box_text_new();
-	gtk_combo_box_set_wrap_width(GTK_COMBO_BOX(filetype_combo), 2);
 	gtk_widget_set_tooltip_text(filetype_ebox,
 		_("Explicitly defines a filetype for the file, if it would not be detected by filename extension.\nNote if you choose multiple files, they will all be opened with the chosen filetype."));
 	gtk_container_add(GTK_CONTAINER(filetype_ebox), filetype_combo);
@@ -394,6 +393,7 @@ static GtkWidget *create_open_file_dialog(void)
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(filetype_combo), ft->title);
 		gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filetypes_create_file_filter(ft));
 	}
+	gtk_combo_box_set_wrap_width(GTK_COMBO_BOX(filetype_combo), 3);
 	gtk_combo_box_set_active(GTK_COMBO_BOX(filetype_combo), 0);
 
 	/* fill encoding combo box */
@@ -591,7 +591,7 @@ static gboolean show_save_as_gtk(GeanyDocument *doc)
 	GtkWidget *dialog;
 	gint resp;
 
-	g_return_val_if_fail(doc != NULL, FALSE);
+	g_return_val_if_fail(DOC_VALID(doc), FALSE);
 
 	dialog = create_save_file_dialog(doc);
 
@@ -1171,6 +1171,8 @@ void dialogs_show_file_properties(GeanyDocument *doc)
 # define S_IWOTH 0
 # define S_IXOTH 0
 #endif
+
+	g_return_if_fail(doc == NULL || doc->is_valid);
 
 	if (doc == NULL || doc->file_name == NULL)
 	{

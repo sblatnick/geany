@@ -518,10 +518,10 @@ static void save_dialog_prefs(GKeyFile *config)
 		g_key_file_set_string(config, "VTE", "font", vc->font);
 		g_key_file_set_string(config, "VTE", "image", vc->image);
 		g_key_file_set_string(config, "VTE", "shell", vc->shell);
-		tmp_string = utils_get_hex_from_color(vc->colour_fore);
+		tmp_string = utils_get_hex_from_color(&vc->colour_fore);
 		g_key_file_set_string(config, "VTE", "colour_fore", tmp_string);
 		g_free(tmp_string);
-		tmp_string = utils_get_hex_from_color(vc->colour_back);
+		tmp_string = utils_get_hex_from_color(&vc->colour_back);
 		g_key_file_set_string(config, "VTE", "colour_back", tmp_string);
 		g_free(tmp_string);
 	}
@@ -689,6 +689,16 @@ void configuration_load_session_files(GKeyFile *config, gboolean read_recent_fil
 }
 
 
+static void get_setting_color(GKeyFile *config, const gchar *section, const gchar *key,
+		GdkColor *color, const gchar *default_color)
+{
+	gchar *str = utils_get_setting_string(config, section, key, NULL);
+	if (str == NULL || ! utils_parse_color(str, color))
+		utils_parse_color(default_color, color);
+	g_free(str);
+}
+
+
 /* note: new settings should be added in init_pref_groups() */
 static void load_dialog_prefs(GKeyFile *config)
 {
@@ -835,7 +845,7 @@ static void load_dialog_prefs(GKeyFile *config)
 		vte_info.dir = utils_get_setting_string(config, "VTE", "last_dir", NULL);
 		if ((vte_info.dir == NULL || utils_str_equal(vte_info.dir, "")) && pw != NULL)
 			/* last dir is not set, fallback to user's home directory */
-			vte_info.dir = g_strdup(pw->pw_dir);
+			SETPTR(vte_info.dir, g_strdup(pw->pw_dir));
 		else if (vte_info.dir == NULL && pw == NULL)
 			/* fallback to root */
 			vte_info.dir = g_strdup("/");
@@ -856,14 +866,8 @@ static void load_dialog_prefs(GKeyFile *config)
 		vc->skip_run_script = utils_get_setting_boolean(config, "VTE", "skip_run_script", FALSE);
 		vc->cursor_blinks = utils_get_setting_boolean(config, "VTE", "cursor_blinks", FALSE);
 		vc->scrollback_lines = utils_get_setting_integer(config, "VTE", "scrollback_lines", 500);
-		vc->colour_fore = g_new0(GdkColor, 1);
-		vc->colour_back = g_new0(GdkColor, 1);
-		tmp_string = utils_get_setting_string(config, "VTE", "colour_fore", "#ffffff");
-		gdk_color_parse(tmp_string, vc->colour_fore);
-		g_free(tmp_string);
-		tmp_string = utils_get_setting_string(config, "VTE", "colour_back", "#000000");
-		gdk_color_parse(tmp_string, vc->colour_back);
-		g_free(tmp_string);
+		get_setting_color(config, "VTE", "colour_fore", &vc->colour_fore, "#ffffff");
+		get_setting_color(config, "VTE", "colour_back", &vc->colour_back, "#000000");
 	}
 #endif
 	/* templates */
@@ -886,7 +890,7 @@ static void load_dialog_prefs(GKeyFile *config)
 	cmd = utils_get_setting_string(config, "tools", "terminal_cmd", "");
 	if (EMPTY(cmd))
 	{
-		cmd = utils_get_setting_string(config, "tools", "term_cmd", "");
+		SETPTR(cmd, utils_get_setting_string(config, "tools", "term_cmd", ""));
 		if (!EMPTY(cmd))
 		{
 			tmp_string = cmd;
@@ -901,7 +905,7 @@ static void load_dialog_prefs(GKeyFile *config)
 			g_free(tmp_string);
 		}
 		else
-			cmd = g_strdup(GEANY_DEFAULT_TOOLS_TERMINAL);
+			SETPTR(cmd, g_strdup(GEANY_DEFAULT_TOOLS_TERMINAL));
 	}
 	tool_prefs.term_cmd = cmd;
 	tool_prefs.browser_cmd = utils_get_setting_string(config, "tools", "browser_cmd", GEANY_DEFAULT_TOOLS_BROWSER);

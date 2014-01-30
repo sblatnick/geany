@@ -203,6 +203,7 @@ test_sources = \
 	regexp.js						\
 	secondary_fcn_name.js			\
 	semicolon.f90					\
+	shebang.js						\
 	signature.cpp					\
 	simple.bas						\
 	simple.cbl						\
@@ -228,6 +229,8 @@ test_sources = \
 	tabindent.py					\
 	test.py							\
 	test.vhd						\
+	test_input.rs					\
+	test_input2.rs					\
 	traffic_signal.v				\
 	traits.php						\
 	union.f							\

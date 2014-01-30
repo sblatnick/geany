@@ -1099,6 +1099,8 @@ GeanyDocument *document_open_file_full(GeanyDocument *doc, const gchar *filename
 	GeanyFiletype *use_ft;
 	FileData filedata;
 
+	g_return_val_if_fail(doc == NULL || doc->is_valid, NULL);
+
 	if (reload)
 	{
 		utf8_filename = g_strdup(doc->file_name);
@@ -2317,6 +2319,7 @@ void document_highlight_tags(GeanyDocument *doc)
 		case GEANY_FILETYPES_JAVA:
 		case GEANY_FILETYPES_OBJECTIVEC:
 		case GEANY_FILETYPES_VALA:
+		case GEANY_FILETYPES_RUST:
 		{
 
 			/* index of the keyword set in the Scintilla lexer, for

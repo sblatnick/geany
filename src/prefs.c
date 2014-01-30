@@ -396,7 +396,7 @@ static void kb_init(void)
 static void prefs_init_dialog(void)
 {
 	GtkWidget *widget, *widget_secondary;
-	GdkColor *color;
+	GdkColor color = {0};
 
 	/* Synchronize with Stash settings */
 	prefs_action(PREF_DISPLAY);
@@ -477,11 +477,9 @@ static void prefs_init_dialog(void)
 	}
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), TRUE);
 
-	color = g_new0(GdkColor, 1);
-	gdk_color_parse(editor_prefs.long_line_color, color);
+	utils_parse_color(editor_prefs.long_line_color, &color);
 	widget = ui_lookup_widget(ui_widgets.prefs_dialog, "long_line_color");
-	gtk_color_button_set_color(GTK_COLOR_BUTTON(widget), color);
-	g_free(color);
+	gtk_color_button_set_color(GTK_COLOR_BUTTON(widget), &color);
 
 	widget = ui_lookup_widget(ui_widgets.prefs_dialog, "check_show_notebook_tabs");
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), interface_prefs.show_notebook_tabs);
@@ -779,10 +777,10 @@ static void prefs_init_dialog(void)
 		gtk_font_button_set_font_name(GTK_FONT_BUTTON(widget), vc->font);
 
 		widget = ui_lookup_widget(ui_widgets.prefs_dialog, "color_fore");
-		gtk_color_button_set_color(GTK_COLOR_BUTTON(widget), vc->colour_fore);
+		gtk_color_button_set_color(GTK_COLOR_BUTTON(widget), &vc->colour_fore);
 
 		widget = ui_lookup_widget(ui_widgets.prefs_dialog, "color_back");
-		gtk_color_button_set_color(GTK_COLOR_BUTTON(widget), vc->colour_back);
+		gtk_color_button_set_color(GTK_COLOR_BUTTON(widget), &vc->colour_back);
 
 		widget = ui_lookup_widget(ui_widgets.prefs_dialog, "entry_image");
 		gtk_entry_set_text(GTK_ENTRY(widget), vc->image);
@@ -1691,7 +1689,7 @@ void prefs_show_dialog(void)
 	if (ui_widgets.prefs_dialog == NULL)
 	{
 		GtkListStore *encoding_list, *eol_list;
-		GtkWidget *label;
+		GtkWidget *label, *widget;
 		guint i;
 		gchar *encoding_string;
 
@@ -1713,6 +1711,13 @@ void prefs_show_dialog(void)
 		list_store_append_text(eol_list, utils_get_eol_name(SC_EOL_CRLF));
 		list_store_append_text(eol_list, utils_get_eol_name(SC_EOL_CR));
 		list_store_append_text(eol_list, utils_get_eol_name(SC_EOL_LF));
+
+		/* wet combo box wrap width after having filled the encoding to workaround
+		 * GTK bug https://bugzilla.gnome.org/show_bug.cgi?id=722388 */
+		widget = ui_lookup_widget(ui_widgets.prefs_dialog, "combo_new_encoding");
+		gtk_combo_box_set_wrap_width(GTK_COMBO_BOX(widget), 3);
+		widget = ui_lookup_widget(ui_widgets.prefs_dialog, "combo_open_encoding");
+		gtk_combo_box_set_wrap_width(GTK_COMBO_BOX(widget), 3);
 
 		/* add manually GeanyWrapLabels because they can't be added with Glade */
 		/* page Tools */

@@ -317,6 +317,8 @@ static gchar *create_statusbar_statistics(GeanyDocument *doc,
 /* updates the status bar document statistics */
 void ui_update_statusbar(GeanyDocument *doc, gint pos)
 {
+	g_return_if_fail(doc == NULL || doc->is_valid);
+
 	if (! interface_prefs.statusbar_visible)
 		return; /* just do nothing if statusbar is not visible */
 
@@ -358,6 +360,8 @@ void ui_set_window_title(GeanyDocument *doc)
 {
 	GString *str;
 	GeanyProject *project = app->project;
+
+	g_return_if_fail(doc == NULL || doc->is_valid);
 
 	if (doc == NULL)
 		doc = document_get_current();
@@ -445,6 +449,8 @@ void ui_update_popup_reundo_items(GeanyDocument *doc)
 	gboolean enable_redo;
 	guint i, len;
 
+	g_return_if_fail(doc == NULL || doc->is_valid);
+
 	if (doc == NULL)
 	{
 		enable_undo = FALSE;
@@ -475,6 +481,8 @@ void ui_update_popup_copy_items(GeanyDocument *doc)
 	gboolean enable;
 	guint i, len;
 
+	g_return_if_fail(doc == NULL || doc->is_valid);
+
 	if (doc == NULL)
 		enable = FALSE;
 	else
@@ -501,6 +509,8 @@ void ui_update_menu_copy_items(GeanyDocument *doc)
 	guint i, len;
 	GtkWidget *focusw = gtk_window_get_focus(GTK_WINDOW(main_widgets.window));
 
+	g_return_if_fail(doc == NULL || doc->is_valid);
+
 	if (IS_SCINTILLA(focusw))
 		enable = (doc == NULL) ? FALSE : sci_has_selection(doc->editor->sci);
 	else
@@ -523,6 +533,8 @@ void ui_update_menu_copy_items(GeanyDocument *doc)
 void ui_update_insert_include_item(GeanyDocument *doc, gint item)
 {
 	gboolean enable = FALSE;
+
+	g_return_if_fail(doc == NULL || doc->is_valid);
 
 	if (doc == NULL || doc->file_type == NULL)
 		enable = FALSE;
@@ -891,6 +903,8 @@ void ui_document_show_hide(GeanyDocument *doc)
 	const gchar *widget_name;
 	GtkWidget *item;
 	const GeanyIndentPrefs *iprefs;
+
+	g_return_if_fail(doc == NULL || doc->is_valid);
 
 	if (doc == NULL)
 		doc = document_get_current();
@@ -1679,8 +1693,7 @@ void ui_setup_open_button_callback(GtkWidget *open_btn, const gchar *title,
 		g_object_set_data_full(G_OBJECT(open_btn), "title", g_strdup(title),
 				(GDestroyNotify) g_free);
 	g_object_set_data(G_OBJECT(open_btn), "action", GINT_TO_POINTER(action));
-	ui_hookup_widget(open_btn, path_entry, "entry");
-	g_signal_connect(open_btn, "clicked", G_CALLBACK(ui_path_box_open_clicked), open_btn);
+	g_signal_connect(open_btn, "clicked", G_CALLBACK(ui_path_box_open_clicked), path_entry);
 }
 
 
@@ -1725,10 +1738,9 @@ static gchar *run_file_chooser(const gchar *title, GtkFileChooserAction action,
 
 static void ui_path_box_open_clicked(GtkButton *button, gpointer user_data)
 {
-	GtkWidget *path_box = GTK_WIDGET(user_data);
-	GtkFileChooserAction action = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(path_box), "action"));
-	GtkEntry *entry = g_object_get_data(G_OBJECT(path_box), "entry");
-	const gchar *title = g_object_get_data(G_OBJECT(path_box), "title");
+	GtkFileChooserAction action = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "action"));
+	GtkEntry *entry = user_data;
+	const gchar *title = g_object_get_data(G_OBJECT(button), "title");
 	gchar *utf8_path = NULL;
 
 	/* TODO: extend for other actions */
@@ -1888,6 +1900,28 @@ static void create_config_files_menu(void)
 }
 
 
+/* adds factory icons with a named icon source using the stock items id */
+static void add_stock_icons(const GtkStockItem *items, gsize count)
+{
+	GtkIconFactory *factory = gtk_icon_factory_new();
+	GtkIconSource *source = gtk_icon_source_new();
+	gsize i;
+
+	for (i = 0; i < count; i++)
+	{
+		GtkIconSet *set = gtk_icon_set_new();
+
+		gtk_icon_source_set_icon_name(source, items[i].stock_id);
+		gtk_icon_set_add_source(set, source);
+		gtk_icon_factory_add(factory, items[i].stock_id, set);
+		gtk_icon_set_unref(set);
+	}
+	gtk_icon_source_free(source);
+	gtk_icon_factory_add_default(factory);
+	g_object_unref(factory);
+}
+
+
 void ui_init_stock_items(void)
 {
 	GtkStockItem items[] =
@@ -1897,7 +1931,8 @@ void ui_init_stock_items(void)
 		{ GEANY_STOCK_BUILD, N_("Build"), 0, 0, GETTEXT_PACKAGE }
 	};
 
-	gtk_stock_add((GtkStockItem *) items, G_N_ELEMENTS(items));
+	gtk_stock_add(items, G_N_ELEMENTS(items));
+	add_stock_icons(items, G_N_ELEMENTS(items));
 }
 
 
@@ -2708,6 +2743,9 @@ GdkPixbuf *ui_get_mime_icon(const gchar *mime_type, GtkIconSize size)
 		{
 #if GTK_CHECK_VERSION(3, 0, 0)
 			GtkStyleContext *ctx = gtk_style_context_new();
+			GtkWidgetPath *path = gtk_widget_path_new();
+			gtk_style_context_set_path(ctx, path);
+			gtk_widget_path_unref(path);
 			icon = gtk_icon_set_render_icon_pixbuf(icon_set, ctx, size);
 			g_object_unref(ctx);
 #else

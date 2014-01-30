@@ -872,18 +872,6 @@ gchar *utils_get_hex_from_color(GdkColor *color)
 }
 
 
-guint utils_invert_color(guint color)
-{
-	guint r, g, b;
-
-	r = 0xffffff - color;
-	g = 0xffffff - (color >> 8);
-	b = 0xffffff - (color >> 16);
-
-	return (r | (g << 8) | (b << 16));
-}
-
-
 /* Get directory from current file in the notebook.
  * Returns dir string that should be freed or NULL, depending on whether current file is valid.
  * Returned string is in UTF-8 encoding */
@@ -964,50 +952,44 @@ gchar *utils_make_human_readable_str(guint64 size, gulong block_size,
 }
 
 
- static guint utils_get_value_of_hex(const gchar ch)
+/* converts a color representation using gdk_color_parse(), with additional
+ * support of the "0x" prefix as a synonym for "#" */
+gboolean utils_parse_color(const gchar *spec, GdkColor *color)
 {
-	if (ch >= '0' && ch <= '9')
-		return ch - '0';
-	else if (ch >= 'A' && ch <= 'F')
-		return ch - 'A' + 10;
-	else if (ch >= 'a' && ch <= 'f')
-		return ch - 'a' + 10;
-	else
-		return 0;
+	gchar buf[64] = {0};
+
+	g_return_val_if_fail(spec != NULL, -1);
+
+	if (spec[0] == '0' && (spec[1] == 'x' || spec[1] == 'X'))
+	{
+		/* convert to # format for GDK to understand it */
+		buf[0] = '#';
+		strncpy(buf + 1, spec + 2, sizeof(buf) - 2);
+		spec = buf;
+	}
+
+	return gdk_color_parse(spec, color);
 }
 
 
-/* utils_strtod() converts a string containing a hex colour ("0x00ff00") into an integer.
- * Basically, it is the same as strtod() would do, but it does not understand hex colour values,
- * before ANSI-C99. With with_route set, it takes strings of the format "#00ff00".
- * Returns -1 on failure. */
-gint utils_strtod(const gchar *source, gchar **end, gboolean with_route)
+/* converts a GdkColor to the packed 24 bits BGR format, as understood by Scintilla
+ * returns a 24 bits BGR color, or -1 on failure */
+gint utils_color_to_bgr(const GdkColor *c)
 {
-	guint red, green, blue, offset = 0;
+	g_return_val_if_fail(c != NULL, -1);
+	return (c->red / 256) | ((c->green / 256) << 8) | ((c->blue / 256) << 16);
+}
 
-	g_return_val_if_fail(source != NULL, -1);
 
-	if (with_route && (strlen(source) != 7 || source[0] != '#'))
+/* parses @p spec using utils_parse_color() and convert it to 24 bits BGR using
+ * utils_color_to_bgr() */
+gint utils_parse_color_to_bgr(const gchar *spec)
+{
+	GdkColor color;
+	if (utils_parse_color(spec, &color))
+		return utils_color_to_bgr(&color);
+	else
 		return -1;
-	else if (! with_route && (strlen(source) != 8 || source[0] != '0' ||
-		(source[1] != 'x' && source[1] != 'X')))
-	{
-		return -1;
-	}
-
-	/* offset is set to 1 when the string starts with 0x, otherwise it starts with #
-	 * and we don't need to increase the index */
-	if (! with_route)
-		offset = 1;
-
-	red = utils_get_value_of_hex(
-					source[1 + offset]) * 16 + utils_get_value_of_hex(source[2 + offset]);
-	green = utils_get_value_of_hex(
-					source[3 + offset]) * 16 + utils_get_value_of_hex(source[4 + offset]);
-	blue = utils_get_value_of_hex(
-					source[5 + offset]) * 16 + utils_get_value_of_hex(source[6 + offset]);
-
-	return (red | (green << 8) | (blue << 16));
 }
 
 

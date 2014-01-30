@@ -300,6 +300,7 @@ const gchar *symbols_get_context_separator(gint ft_id)
 		case GEANY_FILETYPES_GLSL:	/* for structs */
 		/*case GEANY_FILETYPES_RUBY:*/ /* not sure what to use atm*/
 		case GEANY_FILETYPES_PHP:
+		case GEANY_FILETYPES_RUST:
 			return "::";
 
 		/* avoid confusion with other possible separators in group/section name */
@@ -771,7 +772,23 @@ static void add_top_level_items(GeanyDocument *doc)
 		{
 			tag_list_add_groups(tag_store,
 				&(tv_iters.tag_function), _("Functions"), "classviewer-method",
-				&(tv_iters.tag_struct), _("Other"), NULL,
+				&(tv_iters.tag_other), _("Other"), NULL,
+				NULL);
+			break;
+		}
+		case GEANY_FILETYPES_RUST:
+		{
+			tag_list_add_groups(tag_store,
+				&(tv_iters.tag_namespace), _("Modules"), "classviewer-namespace",
+				&(tv_iters.tag_struct), _("Structures"), "classviewer-struct",
+				&(tv_iters.tag_interface), _("Traits"), "classviewer-class",
+				&(tv_iters.tag_class), _("Implementations"), "classviewer-class",
+				&(tv_iters.tag_function), _("Functions"), "classviewer-method",
+				&(tv_iters.tag_type), _("Typedefs / Enums"), "classviewer-struct",
+				&(tv_iters.tag_variable), _("Variables"), "classviewer-var",
+				&(tv_iters.tag_macro), _("Macros"), "classviewer-macro",
+				&(tv_iters.tag_member), _("Methods"), "classviewer-member",
+				&(tv_iters.tag_other), _("Other"), "classviewer-other", NULL,
 				NULL);
 			break;
 		}
@@ -1698,7 +1715,7 @@ gboolean symbols_recreate_tag_list(GeanyDocument *doc, gint sort_mode)
 {
 	GList *tags;
 
-	g_return_val_if_fail(doc != NULL, FALSE);
+	g_return_val_if_fail(DOC_VALID(doc), FALSE);
 
 	tags = get_tag_list(doc, tm_tag_max_t);
 	if (tags == NULL)
@@ -2208,6 +2225,8 @@ static gint get_current_tag_name_cached(GeanyDocument *doc, const gchar **tagnam
 {
 	static gint tag_line = -1;
 	static gchar *cur_tag = NULL;
+
+	g_return_val_if_fail(doc == NULL || doc->is_valid, -1);
 
 	if (doc == NULL)	/* reset current function */
 	{
