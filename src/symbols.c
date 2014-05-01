@@ -528,6 +528,7 @@ struct TreeviewSymbols
 	GtkTreeIter		 tag_macro;
 	GtkTreeIter		 tag_member;
 	GtkTreeIter		 tag_variable;
+	GtkTreeIter		 tag_externvar;
 	GtkTreeIter		 tag_namespace;
 	GtkTreeIter		 tag_struct;
 	GtkTreeIter		 tag_interface;
@@ -545,6 +546,7 @@ static void init_tag_iters(void)
 	tv_iters.tag_member.stamp = -1;
 	tv_iters.tag_macro.stamp = -1;
 	tv_iters.tag_variable.stamp = -1;
+	tv_iters.tag_externvar.stamp = -1;
 	tv_iters.tag_namespace.stamp = -1;
 	tv_iters.tag_struct.stamp = -1;
 	tv_iters.tag_interface.stamp = -1;
@@ -565,45 +567,6 @@ static GdkPixbuf *get_tag_icon(const gchar *icon_name)
 		gtk_icon_size_lookup(GTK_ICON_SIZE_MENU, &x, &dummy);
 	}
 	return gtk_icon_theme_load_icon(icon_theme, icon_name, x, 0, NULL);
-}
-
-
-/* finds the next iter at any level
- * @param iter in/out, the current iter, will be changed to the next one
- * @param down whether to try the child iter
- * @return TRUE if there @p iter was set, or FALSE if there is no next iter */
-static gboolean next_iter(GtkTreeModel *model, GtkTreeIter *iter, gboolean down)
-{
-	GtkTreeIter guess;
-	GtkTreeIter copy = *iter;
-
-	/* go down if the item has children */
-	if (down && gtk_tree_model_iter_children(model, &guess, iter))
-		*iter = guess;
-	/* or to the next item at the same level */
-	else if (gtk_tree_model_iter_next(model, &copy))
-		*iter = copy;
-	/* or to the next item at a parent level */
-	else if (gtk_tree_model_iter_parent(model, &guess, iter))
-	{
-		copy = guess;
-		while(TRUE)
-		{
-			if (gtk_tree_model_iter_next(model, &copy))
-			{
-				*iter = copy;
-				return TRUE;
-			}
-			else if (gtk_tree_model_iter_parent(model, &copy, &guess))
-				guess = copy;
-			else
-				return FALSE;
-		}
-	}
-	else
-		return FALSE;
-
-	return TRUE;
 }
 
 
@@ -885,7 +848,7 @@ static void add_top_level_items(GeanyDocument *doc)
 				&(tv_iters.tag_member), _("Methods"), "classviewer-macro",
 				&(tv_iters.tag_function), _("Functions"), "classviewer-method",
 				&(tv_iters.tag_variable), _("Variables"), "classviewer-var",
-				&(tv_iters.tag_namespace), _("Imports"), "classviewer-namespace",
+				&(tv_iters.tag_externvar), _("Imports"), "classviewer-namespace",
 				NULL);
 			break;
 		}
@@ -970,12 +933,14 @@ static void add_top_level_items(GeanyDocument *doc)
 		{
 			tag_list_add_groups(tag_store,
 				&(tv_iters.tag_namespace), _("Module"), "classviewer-class",
+				&(tv_iters.tag_struct), _("Programs"), "classviewer-class",
 				&(tv_iters.tag_interface), _("Interfaces"), "classviewer-struct",
-				&(tv_iters.tag_function), _("Functions"), "classviewer-method",
-				&(tv_iters.tag_member), _("Subroutines"), "classviewer-method",
+				&(tv_iters.tag_function), _("Functions / Subroutines"), "classviewer-method",
 				&(tv_iters.tag_variable), _("Variables"), "classviewer-var",
-				&(tv_iters.tag_type), _("Types"), "classviewer-namespace",
+				&(tv_iters.tag_class), _("Types"), "classviewer-class",
+				&(tv_iters.tag_member), _("Components"), "classviewer-member",
 				&(tv_iters.tag_macro), _("Blocks"), "classviewer-member",
+				&(tv_iters.tag_type), _("Enums"), "classviewer-struct",
 				&(tv_iters.tag_other), _("Other"), "classviewer-other",
 				NULL);
 			break;
@@ -1036,6 +1001,7 @@ static void add_top_level_items(GeanyDocument *doc)
 			}
 			tag_list_add_groups(tag_store,
 				&(tv_iters.tag_variable), _("Variables"), "classviewer-var",
+				&(tv_iters.tag_externvar), _("Extern Variables"), "classviewer-var",
 				&(tv_iters.tag_other), _("Other"), "classviewer-other", NULL);
 		}
 	}
@@ -1172,6 +1138,11 @@ static GtkTreeIter *get_tag_type_iter(TMTagType tag_type, filetype_id ft_id)
 			iter = &tv_iters.tag_function;
 			break;
 		}
+		case tm_tag_externvar_t:
+		{
+			iter = &tv_iters.tag_externvar;
+			break;
+		}
 		case tm_tag_macro_t:
 		case tm_tag_macro_with_arg_t:
 		{
@@ -1304,7 +1275,7 @@ static gboolean tree_store_remove_row(GtkTreeStore *store, GtkTreeIter *iter)
 	if (! cont && has_parent)
 	{
 		*iter = parent;
-		cont = next_iter(GTK_TREE_MODEL(store), iter, FALSE);
+		cont = ui_tree_model_iter_any_next(GTK_TREE_MODEL(store), iter, FALSE);
 	}
 
 	return cont;
@@ -1484,7 +1455,7 @@ static void update_tree_tags(GeanyDocument *doc, GList **tags)
 
 		gtk_tree_model_get(model, &iter, SYMBOLS_COLUMN_TAG, &tag, -1);
 		if (! tag) /* most probably a toplevel, skip it */
-			cont = next_iter(model, &iter, TRUE);
+			cont = ui_tree_model_iter_any_next(model, &iter, TRUE);
 		else
 		{
 			GList *found_item;
@@ -1517,7 +1488,7 @@ static void update_tree_tags(GeanyDocument *doc, GList **tags)
 				tags_table_remove(tags_table, found);
 				*tags = g_list_delete_link(*tags, found_item);
 
-				cont = next_iter(model, &iter, TRUE);
+				cont = ui_tree_model_iter_any_next(model, &iter, TRUE);
 			}
 
 			tm_tag_unref(tag);

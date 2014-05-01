@@ -290,7 +290,7 @@ static gboolean cc_replace_sel_cb(gpointer user_data)
 		return TRUE;
 	}
 
-	if (! data->error && data->buffer != NULL)
+	if (! data->error && data->buffer != NULL && DOC_VALID(data->doc))
 	{	/* Command completed successfully */
 		sci_replace_sel(data->doc->editor->sci, data->buffer->str);
 	}
@@ -946,19 +946,20 @@ void tools_word_count(void)
 /*
  * color dialog callbacks
  */
-#ifndef G_OS_WIN32
 static void on_color_dialog_response(GtkDialog *dialog, gint response, gpointer user_data)
 {
 	switch (response)
 	{
 		case GTK_RESPONSE_OK:
+			gtk_widget_hide(ui_widgets.open_colorsel);
+			/* fall through */
+		case GTK_RESPONSE_APPLY:
 		{
 			GdkColor color;
 			GeanyDocument *doc = document_get_current();
 			gchar *hex;
 			GtkWidget *colorsel;
 
-			gtk_widget_hide(ui_widgets.open_colorsel);
 			g_return_if_fail(doc != NULL);
 
 			colorsel = gtk_color_selection_dialog_get_color_selection(GTK_COLOR_SELECTION_DIALOG(ui_widgets.open_colorsel));
@@ -974,21 +975,28 @@ static void on_color_dialog_response(GtkDialog *dialog, gint response, gpointer 
 			gtk_widget_hide(ui_widgets.open_colorsel);
 	}
 }
-#endif
 
 
 /* This shows the color selection dialog to choose a color. */
 void tools_color_chooser(const gchar *color)
 {
-#ifdef G_OS_WIN32
-	win32_show_color_dialog(color);
-#else
 	GdkColor gc;
 	GtkWidget *colorsel;
+
+#ifdef G_OS_WIN32
+	if (interface_prefs.use_native_windows_dialogs)
+	{
+		win32_show_color_dialog(color);
+		return;
+	}
+#endif
 
 	if (ui_widgets.open_colorsel == NULL)
 	{
 		ui_widgets.open_colorsel = gtk_color_selection_dialog_new(_("Color Chooser"));
+		gtk_dialog_add_button(GTK_DIALOG(ui_widgets.open_colorsel), GTK_STOCK_APPLY, GTK_RESPONSE_APPLY);
+		ui_dialog_set_primary_button_order(GTK_DIALOG(ui_widgets.open_colorsel),
+				GTK_RESPONSE_APPLY, GTK_RESPONSE_CANCEL, GTK_RESPONSE_OK, -1);
 		gtk_widget_set_name(ui_widgets.open_colorsel, "GeanyDialog");
 		gtk_window_set_transient_for(GTK_WINDOW(ui_widgets.open_colorsel), GTK_WINDOW(main_widgets.window));
 		colorsel = gtk_color_selection_dialog_get_color_selection(GTK_COLOR_SELECTION_DIALOG(ui_widgets.open_colorsel));
@@ -1010,5 +1018,4 @@ void tools_color_chooser(const gchar *color)
 
 	/* We make sure the dialog is visible. */
 	gtk_window_present(GTK_WINDOW(ui_widgets.open_colorsel));
-#endif
 }

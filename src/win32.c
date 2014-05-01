@@ -31,6 +31,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <commdlg.h>
+#include <shellapi.h>
 #include <shlobj.h>
 #include <io.h>
 #include <fcntl.h>
@@ -123,7 +124,7 @@ static wchar_t *get_file_filters(void)
 	len = strlen(string);
 	g_strdelimit(string, "\t", '\0');
 	g_assert(string[len - 1] == 0x0);
-	MultiByteToWideChar(CP_UTF8, 0, string, len, title, sizeof(title));
+	MultiByteToWideChar(CP_UTF8, 0, string, len, title, G_N_ELEMENTS(title));
 	g_free(string);
 
 	return title;
@@ -142,7 +143,7 @@ static wchar_t *get_file_filter_all_files(void)
 	len = strlen(filter);
 	g_strdelimit(filter, "\t", '\0');
 	g_assert(filter[len - 1] == 0x0);
-	MultiByteToWideChar(CP_UTF8, 0, filter, len, title, sizeof(title));
+	MultiByteToWideChar(CP_UTF8, 0, filter, len, title, G_N_ELEMENTS(title));
 	g_free(filter);
 
 	return title;
@@ -170,7 +171,7 @@ static wchar_t *get_filters(gboolean project_files)
 	len = strlen(string);
 	g_strdelimit(string, "\t", '\0');
 	g_assert(string[len - 1] == 0x0);
-	MultiByteToWideChar(CP_UTF8, 0, string, len, title, sizeof(title));
+	MultiByteToWideChar(CP_UTF8, 0, string, len, title, G_N_ELEMENTS(title));
 	g_free(string);
 
 	return title;
@@ -189,7 +190,7 @@ static wchar_t *get_dir_for_path(const gchar *utf8_filename)
 	else
 		result = g_path_get_dirname(utf8_filename);
 
-	MultiByteToWideChar(CP_UTF8, 0, result, -1, w_dir, sizeof(w_dir));
+	MultiByteToWideChar(CP_UTF8, 0, result, -1, w_dir, G_N_ELEMENTS(w_dir));
 
 	if (result != utf8_filename)
 		g_free(result);
@@ -237,7 +238,7 @@ gchar *win32_show_folder_dialog(GtkWidget *parent, const gchar *title, const gch
 	wchar_t fname[MAX_PATH];
 	wchar_t w_title[512];
 
-	MultiByteToWideChar(CP_UTF8, 0, title, -1, w_title, sizeof(w_title));
+	MultiByteToWideChar(CP_UTF8, 0, title, -1, w_title, G_N_ELEMENTS(w_title));
 
 	if (parent == NULL)
 		parent = main_widgets.window;
@@ -284,7 +285,7 @@ gchar *win32_show_project_open_dialog(GtkWidget *parent, const gchar *title,
 
 	fname[0] = '\0';
 
-	MultiByteToWideChar(CP_UTF8, 0, title, -1, w_title, sizeof(w_title));
+	MultiByteToWideChar(CP_UTF8, 0, title, -1, w_title, G_N_ELEMENTS(w_title));
 
 	if (parent == NULL)
 		parent = main_widgets.window;
@@ -347,9 +348,9 @@ gboolean win32_show_document_open_dialog(GtkWindow *parent, const gchar *title, 
 	fname[0] = '\0';
 
 	if (initial_dir != NULL)
-		MultiByteToWideChar(CP_UTF8, 0, initial_dir, -1, w_dir, sizeof(w_dir));
+		MultiByteToWideChar(CP_UTF8, 0, initial_dir, -1, w_dir, G_N_ELEMENTS(w_dir));
 
-	MultiByteToWideChar(CP_UTF8, 0, title, -1, w_title, sizeof(w_title));
+	MultiByteToWideChar(CP_UTF8, 0, title, -1, w_title, G_N_ELEMENTS(w_title));
 
 	/* initialise file dialog info struct */
 	memset(&of, 0, sizeof of);
@@ -419,20 +420,30 @@ gboolean win32_show_document_open_dialog(GtkWindow *parent, const gchar *title, 
 
 
 gchar *win32_show_document_save_as_dialog(GtkWindow *parent, const gchar *title,
-										  const gchar *initial_file)
+										  GeanyDocument *doc)
 {
 	OPENFILENAMEW of;
 	gint retval;
 	gchar tmp[MAX_PATH];
 	wchar_t w_file[MAX_PATH];
 	wchar_t w_title[512];
+	int n;
 
 	w_file[0] = '\0';
 
-	if (initial_file != NULL)
-		MultiByteToWideChar(CP_UTF8, 0, initial_file, -1, w_file, sizeof(w_file));
+	/* Convert the name of the file for of.lpstrFile */
+	n = MultiByteToWideChar(CP_UTF8, 0, DOC_FILENAME(doc), -1, w_file, G_N_ELEMENTS(w_file));
 
-	MultiByteToWideChar(CP_UTF8, 0, title, -1, w_title, sizeof(w_title));
+	/* If creating a new file name, convert and append the extension if any */
+	if (! doc->file_name && doc->file_type && doc->file_type->extension &&
+		n + 1 < (int)G_N_ELEMENTS(w_file))
+	{
+		w_file[n - 1] = L'.';
+		MultiByteToWideChar(CP_UTF8, 0, doc->file_type->extension, -1, &w_file[n],
+				G_N_ELEMENTS(w_file) - n - 1);
+	}
+
+	MultiByteToWideChar(CP_UTF8, 0, title, -1, w_title, G_N_ELEMENTS(w_title));
 
 	/* initialise file dialog info struct */
 	memset(&of, 0, sizeof of);
@@ -486,9 +497,9 @@ gchar *win32_show_file_dialog(GtkWindow *parent, const gchar *title, const gchar
 	w_file[0] = '\0';
 
 	if (initial_file != NULL)
-		MultiByteToWideChar(CP_UTF8, 0, initial_file, -1, w_file, sizeof(w_file));
+		MultiByteToWideChar(CP_UTF8, 0, initial_file, -1, w_file, G_N_ELEMENTS(w_file));
 
-	MultiByteToWideChar(CP_UTF8, 0, title, -1, w_title, sizeof(w_title));
+	MultiByteToWideChar(CP_UTF8, 0, title, -1, w_title, G_N_ELEMENTS(w_title));
 
 	/* initialise file dialog info struct */
 	memset(&of, 0, sizeof of);
@@ -599,7 +610,7 @@ void win32_show_pref_file_dialog(GtkEntry *item)
 		filename = g_find_program_in_path(field[0]);
 		if (filename != NULL && g_file_test(filename, G_FILE_TEST_EXISTS))
 		{
-			MultiByteToWideChar(CP_UTF8, 0, filename, -1, fname, sizeof(fname));
+			MultiByteToWideChar(CP_UTF8, 0, filename, -1, fname, G_N_ELEMENTS(fname));
 			g_free(filename);
 		}
 	}
@@ -722,7 +733,7 @@ gboolean win32_message_dialog(GtkWidget *parent, GtkMessageType type, const gcha
 gint win32_check_write_permission(const gchar *dir)
 {
 	static wchar_t w_dir[MAX_PATH];
-	MultiByteToWideChar(CP_UTF8, 0, dir, -1, w_dir, sizeof w_dir);
+	MultiByteToWideChar(CP_UTF8, 0, dir, -1, w_dir, G_N_ELEMENTS(w_dir));
 	if (_waccess(w_dir, R_OK | W_OK) != 0)
 		return errno;
 	else
@@ -1038,6 +1049,7 @@ gboolean win32_spawn(const gchar *dir, gchar **argv, gchar **env, GSpawnFlags fl
 	gchar *tmp_file = create_temp_file();
 	gchar *tmp_errfile = create_temp_file();
 	gchar *command;
+	gchar *locale_command;
 
 	if (env != NULL)
 	{
@@ -1050,10 +1062,15 @@ gboolean win32_spawn(const gchar *dir, gchar **argv, gchar **env, GSpawnFlags fl
 		return FALSE;
 	}
 	command = g_strjoinv(" ", argv);
-	SETPTR(command, g_strdup_printf("%s >%s 2>%s",
+	SETPTR(command, g_strdup_printf("cmd.exe /S /C \"%s >%s 2>%s\"",
 		command, tmp_file, tmp_errfile));
+	locale_command = g_locale_from_utf8(command, -1, NULL, NULL, NULL);
+	if (! locale_command)
+		locale_command = g_strdup(command);
+	geany_debug("WIN32: actually running command:\n%s", command);
 	g_chdir(dir);
-	ret = system(command);
+	errno = 0;
+	ret = system(locale_command);
 	/* the command can return -1 as an exit code, so check errno also */
 	fail = ret == -1 && errno;
 	if (!fail)
@@ -1067,6 +1084,7 @@ gboolean win32_spawn(const gchar *dir, gchar **argv, gchar **env, GSpawnFlags fl
 		g_set_error_literal(error, G_SPAWN_ERROR, errno, g_strerror(errno));
 
 	g_free(command);
+	g_free(locale_command);
 	g_unlink(tmp_file);
 	g_free(tmp_file);
 	g_unlink(tmp_errfile);
@@ -1163,8 +1181,8 @@ static gboolean CreateChildProcess(geany_win32_spawn *gw_spawn, TCHAR *szCmdline
 	/* Expand environment variables like %blah%. */
 	expandedCmdline = win32_expand_environment_variables(szCmdline);
 
-	MultiByteToWideChar(CP_UTF8, 0, expandedCmdline, -1, w_commandline, sizeof(w_commandline));
-	MultiByteToWideChar(CP_UTF8, 0, dir, -1, w_dir, sizeof(w_dir));
+	MultiByteToWideChar(CP_UTF8, 0, expandedCmdline, -1, w_commandline, G_N_ELEMENTS(w_commandline));
+	MultiByteToWideChar(CP_UTF8, 0, dir, -1, w_dir, G_N_ELEMENTS(w_dir));
 
 	/* Create the child process. */
 	bFuncRetn = CreateProcessW(NULL,
