@@ -295,7 +295,7 @@ static void init_default_kb(void)
 	add_kb(group, GEANY_KEYS_EDITOR_REDO, NULL,
 		GDK_y, GDK_CONTROL_MASK, "menu_redo", _("Redo"), "menu_redo2");
 	add_kb(group, GEANY_KEYS_EDITOR_DUPLICATELINE, NULL,
-		GDK_d, GDK_CONTROL_MASK, "edit_duplicateline", _("_Duplicate Line or Selection"),
+		GDK_d, GDK_CONTROL_MASK, "edit_duplicateline", _("D_uplicate Line or Selection"),
 		"duplicate_line_or_selection1");
 	add_kb(group, GEANY_KEYS_EDITOR_DELETELINE, NULL,
 		GDK_k, GDK_CONTROL_MASK, "edit_deleteline", _("_Delete Current Line(s)"),
@@ -347,7 +347,7 @@ static void init_default_kb(void)
 		GDK_c, GDK_CONTROL_MASK | GDK_SHIFT_MASK, "edit_copyline", _("_Copy Current Line(s)"),
 		"copy_current_lines1");
 	add_kb(group, GEANY_KEYS_CLIPBOARD_CUTLINE, NULL,
-		GDK_x, GDK_CONTROL_MASK | GDK_SHIFT_MASK, "edit_cutline", _("_Cut Current Line(s)"),
+		GDK_x, GDK_CONTROL_MASK | GDK_SHIFT_MASK, "edit_cutline", _("Cu_t Current Line(s)"),
 		"cut_current_lines1");
 
 	group = keybindings_get_core_group(GEANY_KEY_GROUP_SELECT);
@@ -357,10 +357,10 @@ static void init_default_kb(void)
 	add_kb(group, GEANY_KEYS_SELECT_WORD, NULL,
 		GDK_w, GDK_SHIFT_MASK | GDK_MOD1_MASK, "edit_selectword", _("Select current word"), NULL);
 	add_kb(group, GEANY_KEYS_SELECT_LINE, NULL,
-		GDK_l, GDK_SHIFT_MASK | GDK_MOD1_MASK, "edit_selectline", _("_Select Current Line(s)"),
+		GDK_l, GDK_SHIFT_MASK | GDK_MOD1_MASK, "edit_selectline", _("S_elect Current Line(s)"),
 		"select_current_lines1");
 	add_kb(group, GEANY_KEYS_SELECT_PARAGRAPH, NULL,
-		GDK_p, GDK_SHIFT_MASK | GDK_MOD1_MASK, "edit_selectparagraph", _("_Select Current Paragraph"),
+		GDK_p, GDK_SHIFT_MASK | GDK_MOD1_MASK, "edit_selectparagraph", _("Se_lect Current Paragraph"),
 		"select_current_paragraph1");
 	add_kb(group, GEANY_KEYS_SELECT_WORDPARTLEFT, NULL,
 		0, 0, "edit_selectwordpartleft", _("Select to previous word part"), NULL);
@@ -390,7 +390,7 @@ static void init_default_kb(void)
 	add_kb(group, GEANY_KEYS_FORMAT_DECREASEINDENTBYSPACE, NULL,
 		0, 0, "edit_decreaseindentbyspace", _("Decrease indent by one space"), NULL);
 	add_kb(group, GEANY_KEYS_FORMAT_AUTOINDENT, NULL,
-		0, 0, "edit_autoindent", _("_Smart Line Indent"), "smart_line_indent1");
+		0, 0, "edit_autoindent", _("S_mart Line Indent"), "smart_line_indent1");
 	add_kb(group, GEANY_KEYS_FORMAT_SENDTOCMD1, NULL,
 		GDK_1, GDK_CONTROL_MASK, "edit_sendtocmd1", _("Send to Custom Command 1"), NULL);
 	add_kb(group, GEANY_KEYS_FORMAT_SENDTOCMD2, NULL,
@@ -412,7 +412,7 @@ static void init_default_kb(void)
 		GDK_d, GDK_SHIFT_MASK | GDK_MOD1_MASK, "menu_insert_date", _("Insert date"),
 		"insert_date_custom1");
 	add_kb(group, GEANY_KEYS_INSERT_ALTWHITESPACE, NULL,
-		0, 0, "edit_insertwhitespace", _("_Insert Alternative White Space"),
+		0, 0, "edit_insertwhitespace", _("Insert Alternative _White Space"),
 		"insert_alternative_white_space1");
 	add_kb(group, GEANY_KEYS_INSERT_LINEBEFORE, NULL,
 		0, 0, "edit_insertlinebefore", _("Insert New Line Before Current"), NULL);
@@ -474,10 +474,10 @@ static void init_default_kb(void)
 		_("Toggle marker"), NULL);
 	add_kb(group, GEANY_KEYS_GOTO_NEXTMARKER, NULL,
 		GDK_period, GDK_CONTROL_MASK, "edit_gotonextmarker",
-		_("_Go to Next Marker"), "go_to_next_marker1");
+		_("Go to Ne_xt Marker"), "go_to_next_marker1");
 	add_kb(group, GEANY_KEYS_GOTO_PREVIOUSMARKER, NULL,
 		GDK_comma, GDK_CONTROL_MASK, "edit_gotopreviousmarker",
-		_("_Go to Previous Marker"), "go_to_previous_marker1");
+		_("Go to Pre_vious Marker"), "go_to_previous_marker1");
 	add_kb(group, GEANY_KEYS_GOTO_TAGDEFINITION, NULL,
 		GDK_t, GDK_CONTROL_MASK, "popup_gototagdefinition",
 		_("Go to Tag Definition"), "goto_tag_definition1");
@@ -567,9 +567,9 @@ static void init_default_kb(void)
 	add_kb(group, GEANY_KEYS_DOCUMENT_CLONE, NULL,
 		0, 0, "menu_clone", _("_Clone"), "clone1");
 	add_kb(group, GEANY_KEYS_DOCUMENT_REPLACETABS, NULL,
-		0, 0, "menu_replacetabs", _("Replace tabs by space"), "menu_replace_tabs");
+		0, 0, "menu_replacetabs", _("Replace tabs with space"), "menu_replace_tabs");
 	add_kb(group, GEANY_KEYS_DOCUMENT_REPLACESPACES, NULL,
-		0, 0, "menu_replacespaces", _("Replace spaces by tabs"), "menu_replace_spaces");
+		0, 0, "menu_replacespaces", _("Replace spaces with tabs"), "menu_replace_spaces");
 	add_kb(group, GEANY_KEYS_DOCUMENT_TOGGLEFOLD, NULL,
 		0, 0, "menu_togglefold", _("Toggle current fold"), NULL);
 	add_kb(group, GEANY_KEYS_DOCUMENT_FOLDALL, NULL,
