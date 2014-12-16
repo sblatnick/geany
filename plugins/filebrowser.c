@@ -33,6 +33,10 @@
 
 #ifdef G_OS_WIN32
 # include <windows.h>
+
+# define OPEN_CMD "explorer \"%d\""
+#else
+# define OPEN_CMD "nautilus \"%d\""
 #endif
 
 GeanyPlugin *geany_plugin;
@@ -606,7 +610,7 @@ static GtkWidget *create_popup_menu(void)
 
 	menu = gtk_menu_new();
 
-	item = gtk_image_menu_item_new_from_stock(GTK_STOCK_OPEN, NULL);
+	item = ui_image_menu_item_new(GTK_STOCK_OPEN, _("Open in _Geany"));
 	gtk_widget_show(item);
 	gtk_container_add(GTK_CONTAINER(menu), item);
 	g_signal_connect(item, "activate", G_CALLBACK(on_open_clicked), NULL);
@@ -987,7 +991,7 @@ static void load_settings(void)
 		"filebrowser", G_DIR_SEPARATOR_S, "filebrowser.conf", NULL);
 	g_key_file_load_from_file(config, config_file, G_KEY_FILE_NONE, NULL);
 
-	open_cmd = utils_get_setting_string(config, "filebrowser", "open_command", "nautilus \"%d\"");
+	open_cmd = utils_get_setting_string(config, "filebrowser", "open_command", OPEN_CMD);
 	/* g_key_file_get_boolean defaults to FALSE */
 	show_hidden_files = g_key_file_get_boolean(config, "filebrowser", "show_hidden_files", NULL);
 	hide_object_files = utils_get_setting_boolean(config, "filebrowser", "hide_object_files", TRUE);

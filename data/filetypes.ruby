@@ -45,6 +45,9 @@ primary=__FILE__ load define_method attr_accessor attr_writer attr_reader and de
 # default extension used when saving files
 extension=rb
 
+# MIME type
+mime_type=application/x-ruby
+
 # the following characters are these which a "word" can contains, see documentation
 #wordchars=_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
 
@@ -70,9 +73,13 @@ context_action_cmd=
 # 0 is spaces, 1 is tabs, 2 is tab & spaces
 #type=1
 
-[build_settings]
+[build-menu]
 # %f will be replaced by the complete filename
 # %e will be replaced by the filename without extension
 # (use only one of it at one time)
-compiler=ruby -c "%f"
-run_cmd=ruby "%f"
+FT_00_LB=_Compile
+FT_00_CM=ruby -wc "%f"
+FT_00_WD=
+EX_00_LB=_Execute
+EX_00_CM=ruby "%f"
+EX_00_WD=

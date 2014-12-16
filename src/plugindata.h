@@ -29,8 +29,15 @@
  * when making changes (see 'Keeping the plugin ABI stable' in the HACKING file). */
 
 
-#ifndef GEANY_PLUGINDATA_H
-#define GEANY_PLUGINDATA_H
+#ifndef GEANY_PLUGIN_DATA_H
+#define GEANY_PLUGIN_DATA_H 1
+
+#include "build.h"  /* GeanyBuildGroup, GeanyBuildSource, GeanyBuildCmdEntries enums */
+#include "document.h" /* GeanyDocument */
+#include "editor.h"	/* GeanyEditor, GeanyIndentType */
+#include "filetypes.h" /* GeanyFiletype */
+
+#include "gtkcompat.h"
 
 G_BEGIN_DECLS
 
@@ -38,10 +45,6 @@ G_BEGIN_DECLS
  * First include geany.h, then plugindata.h, then other API headers. */
 #undef GEANY
 #define GEANY(symbol_name) geany->symbol_name
-
-#include "editor.h"	/* GeanyIndentType */
-#include "build.h"  /* GeanyBuildGroup, GeanyBuildSource, GeanyBuildCmdEntries enums */
-#include "gtkcompat.h"
 
 
 /** The Application Programming Interface (API) version, incremented
@@ -55,7 +58,7 @@ G_BEGIN_DECLS
  * @warning You should not test for values below 200 as previously
  * @c GEANY_API_VERSION was defined as an enum value, not a macro.
  */
-#define GEANY_API_VERSION 217
+#define GEANY_API_VERSION 221
 
 /* hack to have a different ABI when built with GTK3 because loading GTK2-linked plugins
  * with GTK3-linked Geany leads to crash */
@@ -69,7 +72,7 @@ G_BEGIN_DECLS
  * Changing this forces all plugins to be recompiled before Geany can load them. */
 /* This should usually stay the same if fields are only appended, assuming only pointers to
  * structs and not structs themselves are declared by plugins. */
-#define GEANY_ABI_VERSION (69 << GEANY_ABI_SHIFT)
+#define GEANY_ABI_VERSION (70 << GEANY_ABI_SHIFT)
 
 
 /** Defines a function to check the plugin is safe to load.
@@ -152,15 +155,6 @@ GeanyPlugin;
 		info->version = (p_version); \
 		info->author = (p_author); \
 	}
-
-
-#ifndef GEANY_PRIVATE
-
-/* Prototypes for building plugins with -Wmissing-prototypes */
-gint plugin_version_check(gint abi_ver);
-void plugin_set_info(PluginInfo *info);
-
-#endif
 
 
 /** @deprecated - use plugin_set_key_group() instead.
@@ -255,6 +249,23 @@ GeanyData;
 #define geany			geany_data	/**< Simple macro for @c geany_data that reduces typing. */
 
 
+#ifndef GEANY_PRIVATE
+
+/* Prototypes for building plugins with -Wmissing-prototypes
+ * Also allows the compiler to check if the signature of the plugin's
+ * symbol properly matches what we expect. */
+gint plugin_version_check(gint abi_ver);
+void plugin_set_info(PluginInfo *info);
+
+void plugin_init(GeanyData *data);
+GtkWidget *plugin_configure(GtkDialog *dialog);
+void plugin_configure_single(GtkWidget *parent);
+void plugin_help(void);
+void plugin_cleanup(void);
+
+#endif
+
+
 /** This contains pointers to functions owned by Geany for plugins to use.
  * Functions from the core can be appended when needed by plugin authors, but may
  * require some changes. */
@@ -285,13 +296,13 @@ typedef struct GeanyFunctions
 	struct StashFuncs			*p_stash;			/**< See stash.h */
 	struct SymbolsFuncs			*p_symbols;			/**< See symbols.h */
 	struct BuildFuncs			*p_build;			/**< See build.h */
+	struct ProjectFuncs			*p_project;			/**< See project.h */
 }
 GeanyFunctions;
 
 
 /* For more information about these functions, see the main source code.
  * E.g. for p_document->new_file(), see document_new_file() in document.c. */
-
 
 /* See document.h */
 typedef struct DocumentFuncs
@@ -308,7 +319,7 @@ typedef struct DocumentFuncs
 	void		(*document_open_files) (const GSList *filenames, gboolean readonly,
 			struct GeanyFiletype *ft, const gchar *forced_enc);
 	gboolean	(*document_remove_page) (guint page_num);
-	gboolean	(*document_reload_file) (struct GeanyDocument *doc, const gchar *forced_enc);
+	gboolean	(*document_reload_force) (struct GeanyDocument *doc, const gchar *forced_enc);
 	void		(*document_set_encoding) (struct GeanyDocument *doc, const gchar *new_encoding);
 	void		(*document_set_text_changed) (struct GeanyDocument *doc, gboolean changed);
 	void		(*document_set_filetype) (struct GeanyDocument *doc, struct GeanyFiletype *type);
@@ -322,6 +333,7 @@ typedef struct DocumentFuncs
 	gint		(*document_compare_by_display_name) (gconstpointer a, gconstpointer b);
 	gint		(*document_compare_by_tab_order) (gconstpointer a, gconstpointer b);
 	gint		(*document_compare_by_tab_order_reverse) (gconstpointer a, gconstpointer b);
+	GeanyDocument*	(*document_find_by_id)(guint id);
 }
 DocumentFuncs;
 
@@ -596,12 +608,12 @@ SearchFuncs;
 typedef struct TagManagerFuncs
 {
 	gchar*			(*tm_get_real_path) (const gchar *file_name);
-	TMWorkObject*	(*tm_source_file_new) (const char *file_name, gboolean update, const char *name);
-	gboolean		(*tm_workspace_add_object) (TMWorkObject *work_object);
-	gboolean		(*tm_source_file_update) (TMWorkObject *source_file, gboolean force,
-					 gboolean recurse, gboolean update_parent);
-	void			(*tm_work_object_free) (gpointer work_object);
-	gboolean		(*tm_workspace_remove_object) (TMWorkObject *w, gboolean do_free, gboolean update);
+	TMSourceFile*	(*tm_source_file_new) (const char *file_name, const char *name);
+	void			(*tm_source_file_free) (TMSourceFile *source_file);
+	void			(*tm_workspace_add_source_file) (TMSourceFile *source_file);
+	void			(*tm_workspace_remove_source_file) (TMSourceFile *source_file);
+	void			(*tm_workspace_add_source_files) (GPtrArray *source_files);
+	void			(*tm_workspace_remove_source_files) (GPtrArray *source_files);
 }
 TagManagerFuncs;
 
@@ -735,8 +747,17 @@ typedef struct BuildFuncs
 }
 BuildFuncs;
 
+/* See project.h */
+typedef struct ProjectFuncs
+{
+	void (*project_write_config)(void);
+}
+ProjectFuncs;
+
 /* Deprecated aliases */
 #ifndef GEANY_DISABLE_DEPRECATED
+
+#define document_reload_file document_reload_force
 
 /** @deprecated - copy into your plugin code if needed.
  * @c NULL-safe way to get the index of @a doc_ptr in the documents array. */
@@ -752,4 +773,4 @@ BuildFuncs;
 
 G_END_DECLS
 
-#endif
+#endif /* GEANY_PLUGIN_DATA_H */

@@ -23,7 +23,21 @@
  * General utility functions, non-GTK related.
  */
 
-#include "geany.h"
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
+#include "utils.h"
+
+#include "app.h"
+#include "dialogs.h"
+#include "document.h"
+#include "prefs.h"
+#include "sciwrappers.h"
+#include "support.h"
+#include "templates.h"
+#include "ui_utils.h"
+#include "win32.h"
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -41,20 +55,7 @@
 #endif
 
 #include <glib/gstdio.h>
-
 #include <gio/gio.h>
-
-#include "prefs.h"
-#include "support.h"
-#include "document.h"
-#include "filetypes.h"
-#include "dialogs.h"
-#include "win32.h"
-#include "project.h"
-#include "ui_utils.h"
-#include "templates.h"
-
-#include "utils.h"
 
 
 /**
@@ -584,11 +585,7 @@ gboolean utils_str_equal(const gchar *a, const gchar *b)
 	if (a == NULL && b == NULL) return TRUE;
 	else if (a == NULL || b == NULL) return FALSE;
 
-	while (*a == *b++)
-		if (*a++ == '\0')
-			return TRUE;
-
-	return FALSE;
+	return strcmp(a, b) == 0;
 }
 
 
@@ -872,18 +869,6 @@ gchar *utils_get_hex_from_color(GdkColor *color)
 }
 
 
-guint utils_invert_color(guint color)
-{
-	guint r, g, b;
-
-	r = 0xffffff - color;
-	g = 0xffffff - (color >> 8);
-	b = 0xffffff - (color >> 16);
-
-	return (r | (g << 8) | (b << 16));
-}
-
-
 /* Get directory from current file in the notebook.
  * Returns dir string that should be freed or NULL, depending on whether current file is valid.
  * Returned string is in UTF-8 encoding */
@@ -964,50 +949,44 @@ gchar *utils_make_human_readable_str(guint64 size, gulong block_size,
 }
 
 
- static guint utils_get_value_of_hex(const gchar ch)
+/* converts a color representation using gdk_color_parse(), with additional
+ * support of the "0x" prefix as a synonym for "#" */
+gboolean utils_parse_color(const gchar *spec, GdkColor *color)
 {
-	if (ch >= '0' && ch <= '9')
-		return ch - '0';
-	else if (ch >= 'A' && ch <= 'F')
-		return ch - 'A' + 10;
-	else if (ch >= 'a' && ch <= 'f')
-		return ch - 'a' + 10;
-	else
-		return 0;
+	gchar buf[64] = {0};
+
+	g_return_val_if_fail(spec != NULL, -1);
+
+	if (spec[0] == '0' && (spec[1] == 'x' || spec[1] == 'X'))
+	{
+		/* convert to # format for GDK to understand it */
+		buf[0] = '#';
+		strncpy(buf + 1, spec + 2, sizeof(buf) - 2);
+		spec = buf;
+	}
+
+	return gdk_color_parse(spec, color);
 }
 
 
-/* utils_strtod() converts a string containing a hex colour ("0x00ff00") into an integer.
- * Basically, it is the same as strtod() would do, but it does not understand hex colour values,
- * before ANSI-C99. With with_route set, it takes strings of the format "#00ff00".
- * Returns -1 on failure. */
-gint utils_strtod(const gchar *source, gchar **end, gboolean with_route)
+/* converts a GdkColor to the packed 24 bits BGR format, as understood by Scintilla
+ * returns a 24 bits BGR color, or -1 on failure */
+gint utils_color_to_bgr(const GdkColor *c)
 {
-	guint red, green, blue, offset = 0;
+	g_return_val_if_fail(c != NULL, -1);
+	return (c->red / 256) | ((c->green / 256) << 8) | ((c->blue / 256) << 16);
+}
 
-	g_return_val_if_fail(source != NULL, -1);
 
-	if (with_route && (strlen(source) != 7 || source[0] != '#'))
+/* parses @p spec using utils_parse_color() and convert it to 24 bits BGR using
+ * utils_color_to_bgr() */
+gint utils_parse_color_to_bgr(const gchar *spec)
+{
+	GdkColor color;
+	if (utils_parse_color(spec, &color))
+		return utils_color_to_bgr(&color);
+	else
 		return -1;
-	else if (! with_route && (strlen(source) != 8 || source[0] != '0' ||
-		(source[1] != 'x' && source[1] != 'X')))
-	{
-		return -1;
-	}
-
-	/* offset is set to 1 when the string starts with 0x, otherwise it starts with #
-	 * and we don't need to increase the index */
-	if (! with_route)
-		offset = 1;
-
-	red = utils_get_value_of_hex(
-					source[1 + offset]) * 16 + utils_get_value_of_hex(source[2 + offset]);
-	green = utils_get_value_of_hex(
-					source[3 + offset]) * 16 + utils_get_value_of_hex(source[4 + offset]);
-	blue = utils_get_value_of_hex(
-					source[5 + offset]) * 16 + utils_get_value_of_hex(source[6 + offset]);
-
-	return (red | (green << 8) | (blue << 16));
 }
 
 
@@ -1650,9 +1629,9 @@ const gchar *utils_get_default_dir_utf8(void)
  *  @param flags Flags from GSpawnFlags.
  *  @param child_setup A function to run in the child just before exec().
  *  @param user_data The user data for child_setup.
- *  @param std_out The return location for child output.
- *  @param std_err The return location for child error messages.
- *  @param exit_status The child exit status, as returned by waitpid().
+ *  @param std_out The return location for child output, or @a NULL.
+ *  @param std_err The return location for child error messages, or @a NULL.
+ *  @param exit_status The child exit status, as returned by waitpid(), or @a NULL.
  *  @param error The return location for error or @a NULL.
  *
  *  @return @c TRUE on success, @c FALSE if an error was set.
@@ -1988,9 +1967,6 @@ gchar **utils_copy_environment(const gchar **exclude_vars, const gchar *first_va
 	const gchar *key, *value;
 	guint n, o;
 
-	/* get all the environ variables */
-	env = g_listenv();
-
 	/* count the additional variables */
 	va_start(args, first_varname);
 	for (o = 1; va_arg(args, gchar*) != NULL; o++);
@@ -1999,6 +1975,9 @@ gchar **utils_copy_environment(const gchar **exclude_vars, const gchar *first_va
 	g_return_val_if_fail(o % 2 == 0, NULL);
 
 	o /= 2;
+
+	/* get all the environ variables */
+	env = g_listenv();
 
 	/* create an array large enough to hold the new environment */
 	n = g_strv_length(env);
@@ -2098,4 +2077,14 @@ gchar *utils_parse_and_format_build_date(const gchar *input)
 	}
 
 	return g_strdup(input);
+}
+
+
+gchar *utils_get_user_config_dir(void)
+{
+#ifdef G_OS_WIN32
+	return win32_get_user_config_dir();
+#else
+	return g_build_filename(g_get_user_config_dir(), "geany", NULL);
+#endif
 }

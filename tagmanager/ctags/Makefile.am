@@ -24,6 +24,7 @@ parsers = \
 	diff.c \
 	docbook.c \
 	fortran.c \
+	go.c \
 	haskell.c \
 	haxe.c \
 	html.c \
@@ -43,6 +44,7 @@ parsers = \
 	r.c \
 	rest.c \
 	ruby.c \
+	rust.c \
 	sh.c \
 	sql.c \
 	tcl.c \

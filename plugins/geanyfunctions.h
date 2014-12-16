@@ -52,8 +52,8 @@
 	geany_functions->p_document->document_open_files
 #define document_remove_page \
 	geany_functions->p_document->document_remove_page
-#define document_reload_file \
-	geany_functions->p_document->document_reload_file
+#define document_reload_force \
+	geany_functions->p_document->document_reload_force
 #define document_set_encoding \
 	geany_functions->p_document->document_set_encoding
 #define document_set_text_changed \
@@ -80,6 +80,8 @@
 	geany_functions->p_document->document_compare_by_tab_order
 #define document_compare_by_tab_order_reverse \
 	geany_functions->p_document->document_compare_by_tab_order_reverse
+#define document_find_by_id \
+	geany_functions->p_document->document_find_by_id
 #define editor_get_indent_prefs \
 	geany_functions->p_editor->editor_get_indent_prefs
 #define editor_create_widget \
@@ -344,14 +346,16 @@
 	geany_functions->p_tm->tm_get_real_path
 #define tm_source_file_new \
 	geany_functions->p_tm->tm_source_file_new
-#define tm_workspace_add_object \
-	geany_functions->p_tm->tm_workspace_add_object
-#define tm_source_file_update \
-	geany_functions->p_tm->tm_source_file_update
-#define tm_work_object_free \
-	geany_functions->p_tm->tm_work_object_free
-#define tm_workspace_remove_object \
-	geany_functions->p_tm->tm_workspace_remove_object
+#define tm_source_file_free \
+	geany_functions->p_tm->tm_source_file_free
+#define tm_workspace_add_source_file \
+	geany_functions->p_tm->tm_workspace_add_source_file
+#define tm_workspace_remove_source_file \
+	geany_functions->p_tm->tm_workspace_remove_source_file
+#define tm_workspace_add_source_files \
+	geany_functions->p_tm->tm_workspace_add_source_files
+#define tm_workspace_remove_source_files \
+	geany_functions->p_tm->tm_workspace_remove_source_files
 #define search_show_find_in_files_dialog \
 	geany_functions->p_search->search_show_find_in_files_dialog
 #define highlighting_get_style \
@@ -434,5 +438,7 @@
 	geany_functions->p_build->build_set_menu_item
 #define build_get_group_count \
 	geany_functions->p_build->build_get_group_count
+#define project_write_config \
+	geany_functions->p_project->project_write_config
 
 #endif

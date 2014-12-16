@@ -23,7 +23,24 @@
  * File related dialogs, miscellaneous dialogs, font dialog.
  */
 
-#include "geany.h"
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
+#include "dialogs.h"
+
+#include "app.h"
+#include "build.h"
+#include "document.h"
+#include "encodings.h"
+#include "filetypes.h"
+#include "main.h"
+#include "support.h"
+#include "utils.h"
+#include "ui_utils.h"
+#include "win32.h"
+
+#include "gtkcompat.h"
 
 #include <gdk/gdkkeysyms.h>
 #include <string.h>
@@ -39,23 +56,6 @@
 
 /* gstdio.h also includes sys/stat.h */
 #include <glib/gstdio.h>
-
-#include "dialogs.h"
-
-#include "callbacks.h"
-#include "document.h"
-#include "filetypes.h"
-#include "win32.h"
-#include "sciwrappers.h"
-#include "support.h"
-#include "utils.h"
-#include "ui_utils.h"
-#include "keybindings.h"
-#include "encodings.h"
-#include "build.h"
-#include "main.h"
-#include "project.h"
-#include "gtkcompat.h"
 
 
 enum
@@ -80,11 +80,14 @@ filesel_state = {
 	{
 		0,
 		GEANY_ENCODINGS_MAX, /* default encoding is detect from file */
-		0,
+		GEANY_FILETYPES_NONE, /* default filetype is detect from extension */
 		FALSE,
 		FALSE
 	}
 };
+
+
+static gint filetype_combo_box_get_active_filetype(GtkComboBox *combo);
 
 
 /* gets the ID of the current file filter */
@@ -120,13 +123,13 @@ static void file_chooser_set_filter_idx(GtkFileChooser *chooser, guint idx)
 }
 
 
-static void open_file_dialog_handle_response(GtkWidget *dialog, gint response)
+static gboolean open_file_dialog_handle_response(GtkWidget *dialog, gint response)
 {
+	gboolean ret = TRUE;
+
 	if (response == GTK_RESPONSE_ACCEPT || response == GEANY_RESPONSE_VIEW)
 	{
 		GSList *filelist;
-		GtkTreeModel *encoding_model;
-		GtkTreeIter encoding_iter;
 		GeanyFiletype *ft = NULL;
 		const gchar *charset = NULL;
 		GtkWidget *expander = ui_lookup_widget(dialog, "more_options_expander");
@@ -136,22 +139,31 @@ static void open_file_dialog_handle_response(GtkWidget *dialog, gint response)
 
 		filesel_state.open.more_options_visible = gtk_expander_get_expanded(GTK_EXPANDER(expander));
 		filesel_state.open.filter_idx = file_chooser_get_filter_idx(GTK_FILE_CHOOSER(dialog));
-		filesel_state.open.filetype_idx = gtk_combo_box_get_active(GTK_COMBO_BOX(filetype_combo));
+		filesel_state.open.filetype_idx = filetype_combo_box_get_active_filetype(GTK_COMBO_BOX(filetype_combo));
 
 		/* ignore detect from file item */
 		if (filesel_state.open.filetype_idx > 0)
-			ft = g_slist_nth_data(filetypes_by_title, (guint) filesel_state.open.filetype_idx);
+			ft = filetypes_index(filesel_state.open.filetype_idx);
 
-		encoding_model = gtk_combo_box_get_model(GTK_COMBO_BOX(encoding_combo));
-		gtk_combo_box_get_active_iter(GTK_COMBO_BOX(encoding_combo), &encoding_iter);
-		gtk_tree_model_get(encoding_model, &encoding_iter, 0, &filesel_state.open.encoding_idx, -1);
+		filesel_state.open.encoding_idx = ui_encodings_combo_box_get_active_encoding(GTK_COMBO_BOX(encoding_combo));
 		if (filesel_state.open.encoding_idx >= 0 && filesel_state.open.encoding_idx < GEANY_ENCODINGS_MAX)
 			charset = encodings[filesel_state.open.encoding_idx].charset;
 
 		filelist = gtk_file_chooser_get_filenames(GTK_FILE_CHOOSER(dialog));
 		if (filelist != NULL)
 		{
-			document_open_files(filelist, ro, ft, charset);
+			const gchar *first = filelist->data;
+
+			// When there's only one filename it may have been typed manually
+			if (!filelist->next && !g_file_test(first, G_FILE_TEST_EXISTS))
+			{
+				dialogs_show_msgbox(GTK_MESSAGE_ERROR, _("\"%s\" was not found."), first);
+				ret = FALSE;
+			}
+			else
+			{
+				document_open_files(filelist, ro, ft, charset);
+			}
 			g_slist_foreach(filelist, (GFunc) g_free, NULL);	/* free filenames */
 		}
 		g_slist_free(filelist);
@@ -159,6 +171,7 @@ static void open_file_dialog_handle_response(GtkWidget *dialog, gint response)
 	if (app->project && !EMPTY(app->project->base_path))
 		gtk_file_chooser_remove_shortcut_folder(GTK_FILE_CHOOSER(dialog),
 			app->project->base_path, NULL);
+	return ret;
 }
 
 
@@ -182,94 +195,108 @@ on_file_open_check_hidden_toggled(GtkToggleButton *togglebutton, GtkWidget *dial
 }
 
 
-static gint encoding_combo_store_sort_func(GtkTreeModel *model,
-										   GtkTreeIter *a,
-										   GtkTreeIter *b,
-										   gpointer data)
+static void filetype_combo_cell_data_func(GtkCellLayout *cell_layout, GtkCellRenderer *cell,
+		GtkTreeModel *tree_model, GtkTreeIter *iter, gpointer data)
 {
-	gboolean a_has_child = gtk_tree_model_iter_has_child(model, a);
-	gboolean b_has_child = gtk_tree_model_iter_has_child(model, b);
-	gchar *a_string;
-	gchar *b_string;
-	gint cmp_res;
+	gboolean sensitive = !gtk_tree_model_iter_has_child(tree_model, iter);
+	gchar *text;
 
-	if (a_has_child != b_has_child)
-		return a_has_child ? -1 : 1;
-
-	gtk_tree_model_get(model, a, 1, &a_string, -1);
-	gtk_tree_model_get(model, b, 1, &b_string, -1);
-	cmp_res = strcmp(a_string, b_string);
-	g_free(a_string);
-	g_free(b_string);
-	return cmp_res;
+	gtk_tree_model_get(tree_model, iter, 1, &text, -1);
+	g_object_set(cell, "sensitive", sensitive, "text", text, NULL);
+	g_free(text);
 }
 
 
-static GtkTreeStore *create_encoding_combo_store(GtkTreeIter *iter_detect)
+static GtkWidget *create_filetype_combo_box(void)
 {
 	GtkTreeStore *store;
-	GtkTreeIter iter_current, iter_westeuro, iter_easteuro, iter_eastasian, iter_asian,
-				iter_utf8, iter_middleeast;
+	GtkTreeIter iter_compiled, iter_script, iter_markup, iter_misc, iter_detect;
 	GtkTreeIter *iter_parent;
-	gchar *encoding_string;
-	gint i;
+	GtkWidget *combo;
+	GtkCellRenderer *renderer;
+	GSList *node;
 
 	store = gtk_tree_store_new(2, G_TYPE_INT, G_TYPE_STRING);
 
-	gtk_tree_store_append(store, iter_detect, NULL);
-	gtk_tree_store_set(store, iter_detect, 0, GEANY_ENCODINGS_MAX, 1, _("Detect from file"), -1);
+	gtk_tree_store_insert_with_values(store, &iter_detect, NULL, -1,
+			0, GEANY_FILETYPES_NONE, 1, _("Detect from file"), -1);
 
-	gtk_tree_store_append(store, &iter_westeuro, NULL);
-	gtk_tree_store_set(store, &iter_westeuro, 0, -1, 1, _("West European"), -1);
-	gtk_tree_store_append(store, &iter_easteuro, NULL);
-	gtk_tree_store_set(store, &iter_easteuro, 0, -1, 1, _("East European"), -1);
-	gtk_tree_store_append(store, &iter_eastasian, NULL);
-	gtk_tree_store_set(store, &iter_eastasian, 0, -1, 1, _("East Asian"), -1);
-	gtk_tree_store_append(store, &iter_asian, NULL);
-	gtk_tree_store_set(store, &iter_asian, 0, -1, 1, _("SE & SW Asian"), -1);
-	gtk_tree_store_append(store, &iter_middleeast, NULL);
-	gtk_tree_store_set(store, &iter_middleeast, 0, -1, 1, _("Middle Eastern"), -1);
-	gtk_tree_store_append(store, &iter_utf8, NULL);
-	gtk_tree_store_set(store, &iter_utf8, 0, -1, 1, _("Unicode"), -1);
+	gtk_tree_store_insert_with_values(store, &iter_compiled, NULL, -1,
+			0, -1, 1, _("Programming Languages"), -1);
+	gtk_tree_store_insert_with_values(store, &iter_script, NULL, -1,
+			0, -1, 1, _("Scripting Languages"), -1);
+	gtk_tree_store_insert_with_values(store, &iter_markup, NULL, -1,
+			0, -1, 1, _("Markup Languages"), -1);
+	gtk_tree_store_insert_with_values(store, &iter_misc, NULL, -1,
+			0, -1, 1, _("Miscellaneous"), -1);
 
-	for (i = 0; i < GEANY_ENCODINGS_MAX; i++)
+	foreach_slist (node, filetypes_by_title)
 	{
-		switch (encodings[i].group)
+		GeanyFiletype *ft = node->data;
+
+		if (ft->id == GEANY_FILETYPES_NONE)
+			continue;
+
+		switch (ft->group)
 		{
-			case WESTEUROPEAN: iter_parent = &iter_westeuro; break;
-			case EASTEUROPEAN: iter_parent = &iter_easteuro; break;
-			case EASTASIAN: iter_parent = &iter_eastasian; break;
-			case ASIAN: iter_parent = &iter_asian; break;
-			case MIDDLEEASTERN: iter_parent = &iter_middleeast; break;
-			case UNICODE: iter_parent = &iter_utf8; break;
-			case NONE:
+			case GEANY_FILETYPE_GROUP_COMPILED: iter_parent = &iter_compiled; break;
+			case GEANY_FILETYPE_GROUP_SCRIPT: iter_parent = &iter_script; break;
+			case GEANY_FILETYPE_GROUP_MARKUP: iter_parent = &iter_markup; break;
+			case GEANY_FILETYPE_GROUP_MISC: iter_parent = &iter_misc; break;
+			case GEANY_FILETYPE_GROUP_NONE:
 			default: iter_parent = NULL;
 		}
-		gtk_tree_store_append(store, &iter_current, iter_parent);
-		encoding_string = encodings_to_string(&encodings[i]);
-		gtk_tree_store_set(store, &iter_current, 0, i, 1, encoding_string, -1);
-		g_free(encoding_string);
-		/* restore the saved state */
-		if (i == filesel_state.open.encoding_idx)
-			*iter_detect = iter_current;
+		gtk_tree_store_insert_with_values(store, NULL, iter_parent, -1,
+				0, (gint) ft->id, 1, ft->title, -1);
 	}
 
-	gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store), 1, GTK_SORT_ASCENDING);
-	gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(store), 1, encoding_combo_store_sort_func, NULL, NULL);
+	combo = gtk_combo_box_new_with_model(GTK_TREE_MODEL(store));
+	gtk_combo_box_set_active_iter(GTK_COMBO_BOX(combo), &iter_detect);
+	renderer = gtk_cell_renderer_text_new();
+	gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(combo), renderer, TRUE);
+	gtk_cell_layout_set_cell_data_func(GTK_CELL_LAYOUT(combo), renderer,
+			filetype_combo_cell_data_func, NULL, NULL);
 
-	return store;
+	g_object_unref(store);
+
+	return combo;
 }
 
 
-static void encoding_combo_cell_data_func(GtkCellLayout *cell_layout,
-										  GtkCellRenderer *cell,
-										  GtkTreeModel *tree_model,
-										  GtkTreeIter *iter,
-										  gpointer data)
+static gint filetype_combo_box_get_active_filetype(GtkComboBox *combo)
 {
-	gboolean sensitive = !gtk_tree_model_iter_has_child(tree_model, iter);
+	gint id = 0;
+	GtkTreeIter iter;
 
-	g_object_set(cell, "sensitive", sensitive, NULL);
+	if (gtk_combo_box_get_active_iter(combo, &iter))
+	{
+		GtkTreeModel *model = gtk_combo_box_get_model(combo);
+		gtk_tree_model_get(model, &iter, 0, &id, -1);
+	}
+	return id;
+}
+
+
+static gboolean filetype_combo_box_set_active_filetype(GtkComboBox *combo, const gint id)
+{
+	GtkTreeModel *model = gtk_combo_box_get_model(combo);
+	GtkTreeIter iter;
+
+	if (gtk_tree_model_get_iter_first(model, &iter))
+	{
+		do
+		{
+			gint row_id;
+			gtk_tree_model_get(model, &iter, 0, &row_id, -1);
+			if (id == row_id)
+			{
+				gtk_combo_box_set_active_iter(combo, &iter);
+				return TRUE;
+			}
+		}
+		while (ui_tree_model_iter_any_next(model, &iter, TRUE));
+	}
+	return FALSE;
 }
 
 
@@ -304,7 +331,7 @@ static GtkWidget *add_file_open_extra_widget(GtkWidget *dialog)
 					(GtkAttachOptions) (0), 4, 5);
 	/* the ebox is for the tooltip, because gtk_combo_box can't show tooltips */
 	encoding_ebox = gtk_event_box_new();
-	encoding_combo = gtk_combo_box_new();
+	encoding_combo = ui_create_encodings_combo_box(TRUE, GEANY_ENCODINGS_MAX);
 	gtk_widget_set_tooltip_text(encoding_ebox,
 		_("Explicitly defines an encoding for the file, if it would not be detected. This is useful when you know that the encoding of a file cannot be detected correctly by Geany.\nNote if you choose multiple files, they will all be opened with the chosen encoding."));
 	gtk_container_add(GTK_CONTAINER(encoding_ebox), encoding_combo);
@@ -320,8 +347,7 @@ static GtkWidget *add_file_open_extra_widget(GtkWidget *dialog)
 					(GtkAttachOptions) (0), 4, 5);
 	/* the ebox is for the tooltip, because gtk_combo_box can't show tooltips */
 	filetype_ebox = gtk_event_box_new();
-	filetype_combo = gtk_combo_box_text_new();
-	gtk_combo_box_set_wrap_width(GTK_COMBO_BOX(filetype_combo), 2);
+	filetype_combo = create_filetype_combo_box();
 	gtk_widget_set_tooltip_text(filetype_ebox,
 		_("Explicitly defines a filetype for the file, if it would not be detected by filename extension.\nNote if you choose multiple files, they will all be opened with the chosen filetype."));
 	gtk_container_add(GTK_CONTAINER(filetype_ebox), filetype_combo);
@@ -346,17 +372,14 @@ static GtkWidget *add_file_open_extra_widget(GtkWidget *dialog)
 static GtkWidget *create_open_file_dialog(void)
 {
 	GtkWidget *dialog;
-	GtkWidget *filetype_combo, *encoding_combo;
 	GtkWidget *viewbtn;
-	GtkCellRenderer *encoding_renderer;
-	GtkTreeIter encoding_iter;
 	GSList *node;
 
 	dialog = gtk_file_chooser_dialog_new(_("Open File"), GTK_WINDOW(main_widgets.window),
 			GTK_FILE_CHOOSER_ACTION_OPEN, NULL, NULL);
 	gtk_widget_set_name(dialog, "GeanyDialog");
 
-	viewbtn = gtk_dialog_add_button(GTK_DIALOG(dialog), _("_View"), GEANY_RESPONSE_VIEW);
+	viewbtn = gtk_dialog_add_button(GTK_DIALOG(dialog), C_("Open dialog action", "_View"), GEANY_RESPONSE_VIEW);
 	gtk_widget_set_tooltip_text(viewbtn,
 		_("Opens the file in read-only mode. If you choose more than one file to open, all files will be opened read-only."));
 
@@ -376,9 +399,7 @@ static GtkWidget *create_open_file_dialog(void)
 
 	/* add checkboxes and filename entry */
 	gtk_file_chooser_set_extra_widget(GTK_FILE_CHOOSER(dialog), add_file_open_extra_widget(dialog));
-	filetype_combo = ui_lookup_widget(dialog, "filetype_combo");
 
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(filetype_combo), _("Detect by file extension"));
 	/* add FileFilters(start with "All Files") */
 	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog),
 				filetypes_create_file_filter(filetypes[GEANY_FILETYPES_NONE]));
@@ -391,21 +412,8 @@ static GtkWidget *create_open_file_dialog(void)
 
 		if (G_UNLIKELY(ft->id == GEANY_FILETYPES_NONE))
 			continue;
-		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(filetype_combo), ft->title);
 		gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filetypes_create_file_filter(ft));
 	}
-	gtk_combo_box_set_active(GTK_COMBO_BOX(filetype_combo), 0);
-
-	/* fill encoding combo box */
-	encoding_combo = ui_lookup_widget(dialog, "encoding_combo");
-	gtk_combo_box_set_model(GTK_COMBO_BOX(encoding_combo), GTK_TREE_MODEL(
-			create_encoding_combo_store(&encoding_iter)));
-	gtk_combo_box_set_active_iter(GTK_COMBO_BOX(encoding_combo), &encoding_iter);
-	encoding_renderer = gtk_cell_renderer_text_new();
-	gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(encoding_combo), encoding_renderer, TRUE);
-	gtk_cell_layout_add_attribute(GTK_CELL_LAYOUT(encoding_combo), encoding_renderer, "text", 1);
-	gtk_cell_layout_set_cell_data_func(GTK_CELL_LAYOUT(encoding_combo), encoding_renderer,
-			encoding_combo_cell_data_func, NULL, NULL);
 
 	g_signal_connect(dialog, "notify::show-hidden",
 		G_CALLBACK(on_file_open_show_hidden_notify), NULL);
@@ -419,24 +427,24 @@ static void open_file_dialog_apply_settings(GtkWidget *dialog)
 	static gboolean initialized = FALSE;
 	GtkWidget *check_hidden = ui_lookup_widget(dialog, "check_hidden");
 	GtkWidget *filetype_combo = ui_lookup_widget(dialog, "filetype_combo");
+	GtkWidget *encoding_combo = ui_lookup_widget(dialog, "encoding_combo");
 	GtkWidget *expander = ui_lookup_widget(dialog, "more_options_expander");
 
 	/* we can't know the initial position of combo boxes, so retreive it the first time */
 	if (! initialized)
 	{
 		filesel_state.open.filter_idx = file_chooser_get_filter_idx(GTK_FILE_CHOOSER(dialog));
-		filesel_state.open.filetype_idx = gtk_combo_box_get_active(GTK_COMBO_BOX(filetype_combo));
 
 		initialized = TRUE;
 	}
 	else
 	{
 		file_chooser_set_filter_idx(GTK_FILE_CHOOSER(dialog), filesel_state.open.filter_idx);
-		gtk_combo_box_set_active(GTK_COMBO_BOX(filetype_combo), filesel_state.open.filetype_idx);
 	}
 	gtk_expander_set_expanded(GTK_EXPANDER(expander), filesel_state.open.more_options_visible);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_hidden), filesel_state.open.show_hidden);
-	/* encoding combo is restored at creating time, see create_encoding_combo_store() */
+	ui_encodings_combo_box_set_active_encoding(GTK_COMBO_BOX(encoding_combo), filesel_state.open.encoding_idx);
+	filetype_combo_box_set_active_filetype(GTK_COMBO_BOX(filetype_combo), filesel_state.open.filetype_idx);
 }
 
 
@@ -462,7 +470,6 @@ void dialogs_show_open_file(void)
 #endif
 	{
 		GtkWidget *dialog = create_open_file_dialog();
-		gint response;
 
 		open_file_dialog_apply_settings(dialog);
 
@@ -473,8 +480,8 @@ void dialogs_show_open_file(void)
 			gtk_file_chooser_add_shortcut_folder(GTK_FILE_CHOOSER(dialog),
 					app->project->base_path, NULL);
 
-		response = gtk_dialog_run(GTK_DIALOG(dialog));
-		open_file_dialog_handle_response(dialog, response);
+		while (!open_file_dialog_handle_response(dialog,
+			gtk_dialog_run(GTK_DIALOG(dialog))));
 		gtk_widget_destroy(dialog);
 	}
 	g_free(initdir);
@@ -494,9 +501,13 @@ static gboolean handle_save_as(const gchar *utf8_filename, gboolean rename_file)
 		{
 			document_rename_file(doc, utf8_filename);
 		}
-		/* create a new tm_source_file object otherwise tagmanager won't work correctly */
-		tm_workspace_remove_object(doc->tm_file, TRUE, TRUE);
-		doc->tm_file = NULL;
+		if (doc->tm_file)
+		{
+			/* create a new tm_source_file object otherwise tagmanager won't work correctly */
+			tm_workspace_remove_source_file(doc->tm_file);
+			tm_source_file_free(doc->tm_file);
+			doc->tm_file = NULL;
+		}
 	}
 	success = document_save_file_as(doc, utf8_filename);
 
@@ -591,7 +602,7 @@ static gboolean show_save_as_gtk(GeanyDocument *doc)
 	GtkWidget *dialog;
 	gint resp;
 
-	g_return_val_if_fail(doc != NULL, FALSE);
+	g_return_val_if_fail(DOC_VALID(doc), FALSE);
 
 	dialog = create_save_file_dialog(doc);
 
@@ -665,7 +676,7 @@ gboolean dialogs_show_save_as(void)
 	if (interface_prefs.use_native_windows_dialogs)
 	{
 		gchar *utf8_name = win32_show_document_save_as_dialog(GTK_WINDOW(main_widgets.window),
-						_("Save File"), DOC_FILENAME(doc));
+						_("Save File"), doc);
 		if (utf8_name != NULL)
 			result = handle_save_as(utf8_name, FALSE);
 	}
@@ -820,7 +831,6 @@ gboolean dialogs_show_unsaved_file(GeanyDocument *doc)
 }
 
 
-#ifndef G_OS_WIN32
 /* Use GtkFontChooserDialog on GTK3.2 for consistency, and because
  * GtkFontSelectionDialog is somewhat broken on 3.4 */
 #if GTK_CHECK_VERSION(3, 2, 0)
@@ -860,15 +870,18 @@ on_font_dialog_response(GtkDialog *dialog, gint response, gpointer user_data)
 	if (close)
 		gtk_widget_hide(ui_widgets.open_fontsel);
 }
-#endif
 
 
 /* This shows the font selection dialog to choose a font. */
 void dialogs_show_open_font(void)
 {
 #ifdef G_OS_WIN32
-	win32_show_font_dialog();
-#else
+	if (interface_prefs.use_native_windows_dialogs)
+	{
+		win32_show_font_dialog();
+		return;
+	}
+#endif
 
 	if (ui_widgets.open_fontsel == NULL)
 	{
@@ -902,7 +915,6 @@ void dialogs_show_open_font(void)
 		GTK_FONT_SELECTION_DIALOG(ui_widgets.open_fontsel), interface_prefs.editor_font);
 	/* We make sure the dialog is visible. */
 	gtk_window_present(GTK_WINDOW(ui_widgets.open_fontsel));
-#endif
 }
 
 
@@ -927,70 +939,30 @@ on_input_numeric_activate(GtkEntry *entry, GtkDialog *dialog)
 }
 
 
-static void
-on_input_dialog_response(GtkDialog *dialog, gint response, GtkWidget *entry)
-{
-	gboolean persistent = (gboolean) GPOINTER_TO_INT(g_object_get_data(G_OBJECT(dialog), "has_combo"));
-
-	if (response == GTK_RESPONSE_ACCEPT)
-	{
-		const gchar *str = gtk_entry_get_text(GTK_ENTRY(entry));
-		GeanyInputCallback input_cb =
-			(GeanyInputCallback) g_object_get_data(G_OBJECT(dialog), "input_cb");
-
-		if (persistent)
-		{
-			GtkWidget *combo = (GtkWidget *) g_object_get_data(G_OBJECT(dialog), "combo");
-			ui_combo_box_add_to_history(GTK_COMBO_BOX_TEXT(combo), str, 0);
-		}
-		input_cb(str);
-	}
-	gtk_widget_hide(GTK_WIDGET(dialog));
-}
-
-
-static void add_input_widgets(GtkWidget *dialog, GtkWidget *vbox,
-		const gchar *label_text, const gchar *default_text, gboolean persistent,
-		GCallback insert_text_cb)
+typedef struct
 {
 	GtkWidget *entry;
+	GtkWidget *combo;
 
-	if (label_text)
+	GeanyInputCallback callback;
+	gpointer data;
+}
+InputDialogData;
+
+
+static void
+on_input_dialog_response(GtkDialog *dialog, gint response, InputDialogData *data)
+{
+	if (response == GTK_RESPONSE_ACCEPT)
 	{
-		GtkWidget *label = gtk_label_new(label_text);
-		gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
-		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-		gtk_container_add(GTK_CONTAINER(vbox), label);
-	}
+		const gchar *str = gtk_entry_get_text(GTK_ENTRY(data->entry));
 
-	if (persistent)	/* remember previous entry text in a combo box */
-	{
-		GtkWidget *combo = gtk_combo_box_text_new_with_entry();
+		if (data->combo != NULL)
+			ui_combo_box_add_to_history(GTK_COMBO_BOX_TEXT(data->combo), str, 0);
 
-		entry = gtk_bin_get_child(GTK_BIN(combo));
-		ui_entry_add_clear_icon(GTK_ENTRY(entry));
-		g_object_set_data(G_OBJECT(dialog), "combo", combo);
-		gtk_container_add(GTK_CONTAINER(vbox), combo);
+		data->callback(str, data->data);
 	}
-	else
-	{
-		entry = gtk_entry_new();
-		ui_entry_add_clear_icon(GTK_ENTRY(entry));
-		gtk_container_add(GTK_CONTAINER(vbox), entry);
-	}
-
-	if (default_text != NULL)
-	{
-		gtk_entry_set_text(GTK_ENTRY(entry), default_text);
-	}
-	gtk_entry_set_max_length(GTK_ENTRY(entry), 255);
-	gtk_entry_set_width_chars(GTK_ENTRY(entry), 30);
-
-	if (insert_text_cb != NULL)
-		g_signal_connect(entry, "insert-text", insert_text_cb, NULL);
-	g_signal_connect(entry, "activate", G_CALLBACK(on_input_entry_activate), dialog);
-	g_signal_connect(dialog, "show", G_CALLBACK(on_input_dialog_show), entry);
-	g_signal_connect(dialog, "response", G_CALLBACK(on_input_dialog_response), entry);
+	gtk_widget_hide(GTK_WIDGET(dialog));
 }
 
 
@@ -1002,9 +974,11 @@ static void add_input_widgets(GtkWidget *dialog, GtkWidget *vbox,
 static GtkWidget *
 dialogs_show_input_full(const gchar *title, GtkWindow *parent,
 						const gchar *label_text, const gchar *default_text,
-						gboolean persistent, GeanyInputCallback input_cb, GCallback insert_text_cb)
+						gboolean persistent, GeanyInputCallback input_cb, gpointer input_cb_data,
+						GCallback insert_text_cb, gpointer insert_text_cb_data)
 {
 	GtkWidget *dialog, *vbox;
+	InputDialogData *data = g_malloc(sizeof *data);
 
 	dialog = gtk_dialog_new_with_buttons(title, parent,
 		GTK_DIALOG_DESTROY_WITH_PARENT, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
@@ -1013,10 +987,45 @@ dialogs_show_input_full(const gchar *title, GtkWindow *parent,
 	gtk_widget_set_name(dialog, "GeanyDialog");
 	gtk_box_set_spacing(GTK_BOX(vbox), 6);
 
-	g_object_set_data(G_OBJECT(dialog), "has_combo", GINT_TO_POINTER(persistent));
-	g_object_set_data(G_OBJECT(dialog), "input_cb", (gpointer) input_cb);
+	data->combo = NULL;
+	data->entry = NULL;
+	data->callback = input_cb;
+	data->data = input_cb_data;
 
-	add_input_widgets(dialog, vbox, label_text, default_text, persistent, insert_text_cb);
+	if (label_text)
+	{
+		GtkWidget *label = gtk_label_new(label_text);
+		gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+		gtk_container_add(GTK_CONTAINER(vbox), label);
+	}
+
+	if (persistent)	/* remember previous entry text in a combo box */
+	{
+		data->combo = gtk_combo_box_text_new_with_entry();
+		data->entry = gtk_bin_get_child(GTK_BIN(data->combo));
+		ui_entry_add_clear_icon(GTK_ENTRY(data->entry));
+		gtk_container_add(GTK_CONTAINER(vbox), data->combo);
+	}
+	else
+	{
+		data->entry = gtk_entry_new();
+		ui_entry_add_clear_icon(GTK_ENTRY(data->entry));
+		gtk_container_add(GTK_CONTAINER(vbox), data->entry);
+	}
+
+	if (default_text != NULL)
+	{
+		gtk_entry_set_text(GTK_ENTRY(data->entry), default_text);
+	}
+	gtk_entry_set_max_length(GTK_ENTRY(data->entry), 255);
+	gtk_entry_set_width_chars(GTK_ENTRY(data->entry), 30);
+
+	if (insert_text_cb != NULL)
+		g_signal_connect(data->entry, "insert-text", insert_text_cb, insert_text_cb_data);
+	g_signal_connect(data->entry, "activate", G_CALLBACK(on_input_entry_activate), dialog);
+	g_signal_connect(dialog, "show", G_CALLBACK(on_input_dialog_show), data->entry);
+	g_signal_connect_data(dialog, "response", G_CALLBACK(on_input_dialog_response), data, (GClosureNotify)g_free, 0);
 
 	if (persistent)
 	{
@@ -1037,18 +1046,16 @@ dialogs_show_input_full(const gchar *title, GtkWindow *parent,
 GtkWidget *
 dialogs_show_input_persistent(const gchar *title, GtkWindow *parent,
 		const gchar *label_text, const gchar *default_text,
-		GeanyInputCallback input_cb)
+		GeanyInputCallback input_cb, gpointer input_cb_data)
 {
-	return dialogs_show_input_full(title, parent, label_text, default_text, TRUE, input_cb, NULL);
+	return dialogs_show_input_full(title, parent, label_text, default_text, TRUE, input_cb, input_cb_data, NULL, NULL);
 }
 
 
-/* ugly hack - user_data not supported for callback */
-static gchar *dialog_input = NULL;
-
-static void on_dialog_input(const gchar *str)
+static void on_dialog_input(const gchar *str, gpointer data)
 {
-	dialog_input = g_strdup(str);
+	gchar **dialog_input = data;
+	*dialog_input = g_strdup(str);
 }
 
 
@@ -1063,8 +1070,8 @@ static void on_dialog_input(const gchar *str)
 gchar *dialogs_show_input(const gchar *title, GtkWindow *parent, const gchar *label_text,
 	const gchar *default_text)
 {
-	dialog_input = NULL;
-	dialogs_show_input_full(title, parent, label_text, default_text, FALSE, on_dialog_input, NULL);
+	gchar *dialog_input = NULL;
+	dialogs_show_input_full(title, parent, label_text, default_text, FALSE, on_dialog_input, &dialog_input, NULL, NULL);
 	return dialog_input;
 }
 
@@ -1075,10 +1082,10 @@ gchar *dialogs_show_input(const gchar *title, GtkWindow *parent, const gchar *la
 gchar *dialogs_show_input_goto_line(const gchar *title, GtkWindow *parent, const gchar *label_text,
 	const gchar *default_text)
 {
-	dialog_input = NULL;
+	gchar *dialog_input = NULL;
 	dialogs_show_input_full(
-		title, parent, label_text, default_text, FALSE, on_dialog_input,
-		G_CALLBACK(ui_editable_insert_text_callback));
+		title, parent, label_text, default_text, FALSE, on_dialog_input, &dialog_input,
+		G_CALLBACK(ui_editable_insert_text_callback), NULL);
 	return dialog_input;
 }
 
@@ -1146,7 +1153,6 @@ void dialogs_show_file_properties(GeanyDocument *doc)
 	GtkWidget *dialog, *label, *image, *check;
 	gchar *file_size, *title, *base_name, *time_changed, *time_modified, *time_accessed, *enctext;
 	gchar *short_name;
-	GdkPixbuf *pixbuf;
 #ifdef HAVE_SYS_TYPES_H
 	struct stat st;
 	off_t filesize;
@@ -1171,6 +1177,8 @@ void dialogs_show_file_properties(GeanyDocument *doc)
 # define S_IWOTH 0
 # define S_IXOTH 0
 #endif
+
+	g_return_if_fail(doc == NULL || doc->is_valid);
 
 	if (doc == NULL || doc->file_name == NULL)
 	{
@@ -1220,9 +1228,8 @@ void dialogs_show_file_properties(GeanyDocument *doc)
 	gtk_label_set_text(GTK_LABEL(label), base_name);
 
 	image = ui_lookup_widget(dialog, "file_type_image");
-	pixbuf = ui_get_mime_icon(doc->file_type->mime_type, GTK_ICON_SIZE_BUTTON);
-	gtk_image_set_from_pixbuf(GTK_IMAGE(image), pixbuf);
-	g_object_unref(pixbuf);
+	gtk_image_set_from_gicon(GTK_IMAGE(image), doc->file_type->icon,
+			GTK_ICON_SIZE_BUTTON);
 
 	label = ui_lookup_widget(dialog, "file_type_label");
 	gtk_label_set_text(GTK_LABEL(label), doc->file_type->title);

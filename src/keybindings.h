@@ -22,6 +22,8 @@
 #ifndef GEANY_KEYBINDINGS_H
 #define GEANY_KEYBINDINGS_H 1
 
+#include "gtkcompat.h"
+
 G_BEGIN_DECLS
 
 /** Function pointer type used for keybinding callbacks. */
@@ -56,23 +58,6 @@ typedef gboolean (*GeanyKeyGroupCallback) (guint key_id);
 
 /** A collection of keybindings grouped together. */
 typedef struct GeanyKeyGroup GeanyKeyGroup;
-
-/* Plugins should not set these fields. */
-#ifdef GEANY_PRIVATE
-struct GeanyKeyGroup
-{
-	const gchar *name;		/* Group name used in the configuration file, such as @c "html_chars" */
-	const gchar *label;		/* Group label used in the preferences dialog keybindings tab */
-	GeanyKeyGroupCallback callback;	/* use this or individual keybinding callbacks */
-	gboolean plugin;		/* used by plugin */
-	GPtrArray *key_items;	/* pointers to GeanyKeyBinding structs */
-	gsize plugin_key_count;			/* number of keybindings the group holds */
-	GeanyKeyBinding *plugin_keys;	/* array of GeanyKeyBinding structs */
-};
-#endif
-
-
-extern GPtrArray *keybinding_groups;	/* array of GeanyKeyGroup pointers */
 
 
 /* Note: we don't need to break the plugin ABI when appending keybinding or keygroup IDs,
@@ -252,6 +237,20 @@ enum GeanyKeyBindingID
 };
 
 
+void keybindings_send_command(guint group_id, guint key_id);
+
+GeanyKeyBinding *keybindings_set_item(GeanyKeyGroup *group, gsize key_id,
+		GeanyKeyCallback callback, guint key, GdkModifierType mod,
+		const gchar *name, const gchar *label, GtkWidget *menu_item);
+
+GeanyKeyBinding *keybindings_get_item(GeanyKeyGroup *group, gsize key_id);
+
+
+#ifdef GEANY_PRIVATE
+
+extern GPtrArray *keybinding_groups;	/* array of GeanyKeyGroup pointers */
+
+
 void keybindings_init(void);
 
 void keybindings_load_keyfile(void);
@@ -265,17 +264,9 @@ GeanyKeyGroup *keybindings_set_group(GeanyKeyGroup *group, const gchar *section_
 
 void keybindings_free_group(GeanyKeyGroup *group);
 
-GeanyKeyBinding *keybindings_set_item(GeanyKeyGroup *group, gsize key_id,
-		GeanyKeyCallback callback, guint key, GdkModifierType mod,
-		const gchar *name, const gchar *label, GtkWidget *menu_item);
-
-GeanyKeyBinding *keybindings_get_item(GeanyKeyGroup *group, gsize key_id);
-
 gchar *keybindings_get_label(GeanyKeyBinding *kb);
 
 void keybindings_update_combo(GeanyKeyBinding *kb, guint key, GdkModifierType mods);
-
-void keybindings_send_command(guint group_id, guint key_id);
 
 GeanyKeyBinding *keybindings_lookup_item(guint group_id, guint key_id);
 
@@ -288,6 +279,8 @@ gboolean keybindings_check_event(GdkEventKey *ev, GeanyKeyBinding *kb);
 
 void keybindings_dialog_show_prefs_scroll(const gchar *name);
 
+#endif /* GEANY_PRIVATE */
+
 G_END_DECLS
 
-#endif
+#endif /* GEANY_KEYBINDINGS_H */

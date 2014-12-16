@@ -16,6 +16,7 @@ lexers/LexCPP.cxx \
 lexers/LexCSS.cxx \
 lexers/LexCaml.cxx \
 lexers/LexCmake.cxx \
+lexers/LexCoffeeScript.cxx \
 lexers/LexD.cxx \
 lexers/LexErlang.cxx \
 lexers/LexForth.cxx \
@@ -36,6 +37,7 @@ lexers/LexPython.cxx \
 lexers/LexPO.cxx \
 lexers/LexR.cxx \
 lexers/LexRuby.cxx \
+lexers/LexRust.cxx \
 lexers/LexSQL.cxx \
 lexers/LexTCL.cxx \
 lexers/LexTxt2tags.cxx \
@@ -68,6 +70,7 @@ lexlib/OptionSet.h \
 lexlib/PropSetSimple.cxx \
 lexlib/PropSetSimple.h \
 lexlib/SparseState.h \
+lexlib/StringCopy.h \
 lexlib/StyleContext.cxx \
 lexlib/StyleContext.h \
 lexlib/SubStyles.h \
@@ -95,6 +98,10 @@ src/Document.cxx \
 src/Document.h \
 src/Editor.cxx \
 src/Editor.h \
+src/EditModel.cxx \
+src/EditModel.h \
+src/EditView.cxx \
+src/EditView.h \
 src/ExternalLexer.cxx \
 src/ExternalLexer.h \
 src/FontQuality.h \
@@ -104,6 +111,8 @@ src/KeyMap.cxx \
 src/KeyMap.h \
 src/LineMarker.cxx \
 src/LineMarker.h \
+src/MarginView.cxx \
+src/MarginView.h \
 src/Partitioning.h \
 src/PerLine.cxx \
 src/PerLine.h \

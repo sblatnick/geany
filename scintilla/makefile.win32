@@ -70,6 +70,7 @@ LexBash.o \
 LexCOBOL.o \
 LexCSS.o \
 LexCPP.o \
+LexCoffeeScript.o \
 LexHTML.o \
 LexOthers.o \
 LexPascal.o \
@@ -96,6 +97,7 @@ LexLua.o \
 LexHaskell.o \
 LexBasic.o \
 LexR.o \
+LexRust.o \
 LexYAML.o \
 LexCmake.o \
 LexNsis.o
@@ -129,10 +131,13 @@ SRCOBJS=\
 	Decoration.o \
 	Document.o \
 	Editor.o \
+	EditModel.o \
+	EditView.o \
 	ExternalLexer.o \
 	Indicator.o \
 	KeyMap.o \
 	LineMarker.o \
+	MarginView.o \
 	PerLine.o \
 	PositionCache.o \
 	RESearch.o \

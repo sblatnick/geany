@@ -4,6 +4,7 @@
 default=default
 comment=comment
 comment_line_bang=comment_line
+block_comment=comment
 number=number_1
 string=string_1
 operator=operator
@@ -30,6 +31,9 @@ userwords=
 [settings]
 # default extension used when saving files
 extension=vhd
+
+# MIME type
+mime_type=text/x-vhdl
 
 # the following characters are these which a "word" can contains, see documentation
 #wordchars=_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789

@@ -10,7 +10,7 @@ word=keyword_1
 string=string_1
 character=character
 literalstring=string_2
-preprocessor=preprocess
+preprocessor=preprocessor
 operator=operator
 identifier=identifier_1
 stringeol=string_eol
@@ -41,6 +41,9 @@ user4=
 [settings]
 # default extension used when saving files
 extension=lua
+
+# MIME type
+mime_type=text/x-lua
 
 # the following characters are these which a "word" can contains, see documentation
 #wordchars=_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789

@@ -10,6 +10,9 @@ secondary=Array Boolean Date Function Math Number Object String RegExp EvalError
 # default extension used when saving files
 extension=js
 
+# MIME type
+mime_type=application/javascript
+
 # the following characters are these which a "word" can contains, see documentation
 #wordchars=_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
 
@@ -35,11 +38,11 @@ context_action_cmd=
 # 0 is spaces, 1 is tabs, 2 is tab & spaces
 #type=1
 
-[build_settings]
+[build-menu]
 # %f will be replaced by the complete filename
 # %e will be replaced by the filename without extension
 # (use only one of it at one time)
-compiler=
-run=
-
-
+FT_02_LB=_Lint
+FT_02_CM=jshint "%f"
+FT_02_WD=
+error_regex=([^:]+): line ([0-9]+), col ([0-9]+)

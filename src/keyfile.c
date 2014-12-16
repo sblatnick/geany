@@ -28,37 +28,41 @@
  * filename_xx=pos;filetype UID;read only;Eencoding;use_tabs;auto_indent;line_wrapping;filename
  */
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
+#include "keyfile.h"
+
+#include "app.h"
+#include "build.h"
+#include "document.h"
+#include "encodings.h"
+#include "filetypes.h"
+#include "geanyobject.h"
+#include "main.h"
+#include "msgwindow.h"
+#include "prefs.h"
+#include "printing.h"
+#include "project.h"
+#include "sciwrappers.h"
+#include "stash.h"
+#include "support.h"
+#include "templates.h"
+#include "toolbar.h"
+#include "ui_utils.h"
+#include "utils.h"
+#include "vte.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-
-#include "geany.h"
 
 #ifdef HAVE_VTE
 #include <pwd.h>
 #include <sys/types.h>
 #include <unistd.h>
 #endif
-
-#include "support.h"
-#include "keyfile.h"
-#include "prefs.h"
-#include "ui_utils.h"
-#include "utils.h"
-#include "document.h"
-#include "filetypes.h"
-#include "sciwrappers.h"
-#include "encodings.h"
-#include "vte.h"
-#include "main.h"
-#include "msgwindow.h"
-#include "search.h"
-#include "project.h"
-#include "editor.h"
-#include "printing.h"
-#include "templates.h"
-#include "toolbar.h"
-#include "stash.h"
 
 
 /* some default settings which are used at the very first start of Geany to fill
@@ -227,6 +231,8 @@ static void init_pref_groups(void)
 		"find_selection_type", GEANY_FIND_SEL_CURRENT_WORD);
 	stash_group_add_string(group, &file_prefs.extract_filetype_regex,
 		"extract_filetype_regex", GEANY_DEFAULT_FILETYPE_REGEX);
+	stash_group_add_boolean(group, &search_prefs.replace_and_find_by_default,
+		"replace_and_find_by_default", TRUE);
 
 	/* Note: Interface-related various prefs are in ui_init_prefs() */
 
@@ -325,16 +331,32 @@ static gchar *get_session_file_string(GeanyDocument *doc)
 }
 
 
+static void remove_session_files(GKeyFile *config)
+{
+	gchar **ptr;
+	gchar **keys = g_key_file_get_keys(config, "files", NULL, NULL);
+
+	foreach_strv(ptr, keys)
+	{
+		if (g_str_has_prefix(*ptr, "FILE_NAME_"))
+			g_key_file_remove_key(config, "files", *ptr, NULL);
+	}
+	g_strfreev(keys);
+}
+
+
 void configuration_save_session_files(GKeyFile *config)
 {
 	gint npage;
-	gchar *tmp;
 	gchar entry[16];
 	guint i = 0, j = 0, max;
 	GeanyDocument *doc;
 
 	npage = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_widgets.notebook));
 	g_key_file_set_integer(config, "files", "current_page", npage);
+
+	// clear existing entries first as they might not all be overwritten
+	remove_session_files(config);
 
 	/* store the filenames in the notebook tab order to reopen them the next time */
 	max = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_widgets.notebook));
@@ -350,23 +372,6 @@ void configuration_save_session_files(GKeyFile *config)
 			g_key_file_set_string(config, "files", entry, fname);
 			g_free(fname);
 			j++;
-		}
-	}
-	/* if open filenames less than saved session files, delete existing entries in the list */
-	i = j;
-	while (TRUE)
-	{
-		g_snprintf(entry, sizeof(entry), "FILE_NAME_%d", i);
-		tmp = g_key_file_get_string(config, "files", entry, NULL);
-		if (G_UNLIKELY(tmp == NULL))
-		{
-			break;
-		}
-		else
-		{
-			g_key_file_remove_key(config, "files", entry, NULL);
-			g_free(tmp);
-			i++;
 		}
 	}
 
@@ -518,10 +523,10 @@ static void save_dialog_prefs(GKeyFile *config)
 		g_key_file_set_string(config, "VTE", "font", vc->font);
 		g_key_file_set_string(config, "VTE", "image", vc->image);
 		g_key_file_set_string(config, "VTE", "shell", vc->shell);
-		tmp_string = utils_get_hex_from_color(vc->colour_fore);
+		tmp_string = utils_get_hex_from_color(&vc->colour_fore);
 		g_key_file_set_string(config, "VTE", "colour_fore", tmp_string);
 		g_free(tmp_string);
-		tmp_string = utils_get_hex_from_color(vc->colour_back);
+		tmp_string = utils_get_hex_from_color(&vc->colour_back);
 		g_key_file_set_string(config, "VTE", "colour_back", tmp_string);
 		g_free(tmp_string);
 	}
@@ -689,6 +694,18 @@ void configuration_load_session_files(GKeyFile *config, gboolean read_recent_fil
 }
 
 
+#ifdef HAVE_VTE
+static void get_setting_color(GKeyFile *config, const gchar *section, const gchar *key,
+		GdkColor *color, const gchar *default_color)
+{
+	gchar *str = utils_get_setting_string(config, section, key, NULL);
+	if (str == NULL || ! utils_parse_color(str, color))
+		utils_parse_color(default_color, color);
+	g_free(str);
+}
+#endif
+
+
 /* note: new settings should be added in init_pref_groups() */
 static void load_dialog_prefs(GKeyFile *config)
 {
@@ -835,7 +852,7 @@ static void load_dialog_prefs(GKeyFile *config)
 		vte_info.dir = utils_get_setting_string(config, "VTE", "last_dir", NULL);
 		if ((vte_info.dir == NULL || utils_str_equal(vte_info.dir, "")) && pw != NULL)
 			/* last dir is not set, fallback to user's home directory */
-			vte_info.dir = g_strdup(pw->pw_dir);
+			SETPTR(vte_info.dir, g_strdup(pw->pw_dir));
 		else if (vte_info.dir == NULL && pw == NULL)
 			/* fallback to root */
 			vte_info.dir = g_strdup("/");
@@ -856,14 +873,8 @@ static void load_dialog_prefs(GKeyFile *config)
 		vc->skip_run_script = utils_get_setting_boolean(config, "VTE", "skip_run_script", FALSE);
 		vc->cursor_blinks = utils_get_setting_boolean(config, "VTE", "cursor_blinks", FALSE);
 		vc->scrollback_lines = utils_get_setting_integer(config, "VTE", "scrollback_lines", 500);
-		vc->colour_fore = g_new0(GdkColor, 1);
-		vc->colour_back = g_new0(GdkColor, 1);
-		tmp_string = utils_get_setting_string(config, "VTE", "colour_fore", "#ffffff");
-		gdk_color_parse(tmp_string, vc->colour_fore);
-		g_free(tmp_string);
-		tmp_string = utils_get_setting_string(config, "VTE", "colour_back", "#000000");
-		gdk_color_parse(tmp_string, vc->colour_back);
-		g_free(tmp_string);
+		get_setting_color(config, "VTE", "colour_fore", &vc->colour_fore, "#ffffff");
+		get_setting_color(config, "VTE", "colour_back", &vc->colour_back, "#000000");
 	}
 #endif
 	/* templates */
@@ -886,7 +897,7 @@ static void load_dialog_prefs(GKeyFile *config)
 	cmd = utils_get_setting_string(config, "tools", "terminal_cmd", "");
 	if (EMPTY(cmd))
 	{
-		cmd = utils_get_setting_string(config, "tools", "term_cmd", "");
+		SETPTR(cmd, utils_get_setting_string(config, "tools", "term_cmd", ""));
 		if (!EMPTY(cmd))
 		{
 			tmp_string = cmd;
@@ -901,7 +912,7 @@ static void load_dialog_prefs(GKeyFile *config)
 			g_free(tmp_string);
 		}
 		else
-			cmd = g_strdup(GEANY_DEFAULT_TOOLS_TERMINAL);
+			SETPTR(cmd, g_strdup(GEANY_DEFAULT_TOOLS_TERMINAL));
 	}
 	tool_prefs.term_cmd = cmd;
 	tool_prefs.browser_cmd = utils_get_setting_string(config, "tools", "browser_cmd", GEANY_DEFAULT_TOOLS_BROWSER);
@@ -1028,6 +1039,27 @@ void configuration_save_default_session(void)
 
 	if (cl_options.load_session)
 		configuration_save_session_files(config);
+
+	/* write the file */
+	data = g_key_file_to_data(config, NULL, NULL);
+	utils_write_file(configfile, data);
+	g_free(data);
+
+	g_key_file_free(config);
+	g_free(configfile);
+}
+
+
+void configuration_clear_default_session(void)
+{
+	gchar *configfile = g_build_filename(app->configdir, "geany.conf", NULL);
+	gchar *data;
+	GKeyFile *config = g_key_file_new();
+
+	g_key_file_load_from_file(config, configfile, G_KEY_FILE_NONE, NULL);
+
+	if (cl_options.load_session)
+		remove_session_files(config);
 
 	/* write the file */
 	data = g_key_file_to_data(config, NULL, NULL);
@@ -1190,14 +1222,20 @@ void configuration_open_files(void)
 
 	if (failure)
 		ui_set_statusbar(TRUE, _("Failed to load one or more session files."));
-	else if (session_notebook_page >= 0)
+	else
 	{
-		/* explicitly allow notebook switch page callback to be called for window title,
-		 * encoding settings and so other things */
+		/* explicitly trigger a notebook page switch after unsetting main_status.opening_session_files
+		 * for callbacks to run (and update window title, encoding settings, and so on) */
+		gint n_pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_widgets.notebook));
+		gint cur_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_widgets.notebook));
+		gint target_page = session_notebook_page >= 0 ? session_notebook_page : cur_page;
+
+		/* if target page is current page, switch to another page first to really trigger an event */
+		if (target_page == cur_page && n_pages > 0)
+			gtk_notebook_set_current_page(GTK_NOTEBOOK(main_widgets.notebook), (cur_page + 1) % n_pages);
+
 		main_status.opening_session_files = FALSE;
-		/** TODO if session_notebook_page is equal to the current notebook tab(the last opened)
-		 ** the notebook switch page callback isn't triggered and e.g. menu items are not updated */
-		gtk_notebook_set_current_page(GTK_NOTEBOOK(main_widgets.notebook), session_notebook_page);
+		gtk_notebook_set_current_page(GTK_NOTEBOOK(main_widgets.notebook), target_page);
 	}
 	main_status.opening_session_files = FALSE;
 }

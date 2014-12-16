@@ -14,12 +14,14 @@ test_sources = \
 	68hc11.asm						\
 	angle_bracket.cpp				\
 	anonymous_functions.php			\
+	arraylist.js					\
 	array_ref_and_out.cs			\
 	array_spec.f90					\
 	array-spec.f90					\
 	attributes.cs					\
 	auto.f							\
 	bit_field.c						\
+	block.f90						\
 	bracematch.js					\
 	bug1020715.cpp					\
 	bug1020715.c					\
@@ -110,9 +112,20 @@ test_sources = \
 	char-selector.f90				\
 	classes.php						\
 	common.f						\
+	complex-return.js				\
 	continuation.f90				\
 	countall.sql					\
 	cpp_destructor.cpp				\
+	css-at-rules.css				\
+	css-at-supports.css				\
+	css-attribute-selectors.css		\
+	css-comma-no-space.css			\
+	css-namespace-selectors.css		\
+	css-pseudo-classes.css			\
+	css-simple.css					\
+	css-singlequote-in-comment-issue2.css	\
+	css-tag-types.css				\
+	css-trivial.css					\
 	cython_sample.pyx				\
 	cython_sample2.pyx				\
 	cxx11enum.cpp					\
@@ -121,11 +134,15 @@ test_sources = \
 	directives.c					\
 	dopbl2.f						\
 	enum.c							\
+	enum.f90						\
 	enum.java						\
+	enumerators.f90					\
 	events.cs						\
 	extern_variable.h				\
 	forall_module.f90				\
 	format.pl						\
+	fortran_associate.f90			\
+	fortran_line_continuation.f90	\
 	func_typedef.h					\
 	general.cs						\
 	hex2dec.sql						\
@@ -136,11 +153,22 @@ test_sources = \
 	initialization.f90				\
 	interface_indexers.cs			\
 	interface_properties.cs			\
+	interfaces.f90					\
 	internal.cs						\
 	intro_orig.tex					\
 	intro.tex						\
 	invalid_name.f90				\
 	java_enum.java					\
+	js-broken-strings.js			\
+	js-class-related-unterminated.js	\
+	js-const.js						\
+	js-implicit-semicolons.js		\
+	js-let.js						\
+	js-scope.js						\
+	js-signature.js					\
+	js-string-continuation.js		\
+	js-sub-block-scope.js			\
+	js-unknown-construct-nesting.js	\
 	jsFunc_tutorial.js				\
 	keyword_abstract.cs				\
 	keyword_catch_try.cs			\
@@ -154,6 +182,7 @@ test_sources = \
 	keyword_implicit.cs				\
 	keyword_interface.cs			\
 	keyword_namespace.cs			\
+	keyword_names.f90				\
 	keyword_out.cs					\
 	keyword_override.cs				\
 	keyword_params.cs				\
@@ -174,6 +203,7 @@ test_sources = \
 	matlab_backtracking.m			\
 	matlab_test.m					\
 	maze.erl						\
+	members.f90						\
 	misc_types.f90					\
 	misc_types.f					\
 	mode.php						\
@@ -190,19 +220,26 @@ test_sources = \
 	objectivec_protocol.mm			\
 	Package.pm						\
 	php5_5_class_kw.php				\
+	parenthesis-rvalue.js			\
+	preprocessor.f90				\
 	procedure_pointer_module.f90	\
+	procpoint.f90					\
 	property.cs						\
 	prototype.h						\
 	pure_elem.f95					\
 	py_constructor_arglist.py		\
+	qualified_types.f90				\
 	random.sql						\
 	readlob.sql						\
 	readlong.sql					\
 	recursive.f95					\
 	refcurs.sql						\
 	regexp.js						\
+	rules.t2t						\
+	sample.t2t						\
 	secondary_fcn_name.js			\
 	semicolon.f90					\
+	shebang.js						\
 	signature.cpp					\
 	simple.bas						\
 	simple.cbl						\
@@ -219,6 +256,7 @@ test_sources = \
 	simple.tcl						\
 	spurious_label_tags.c			\
 	sql_single_quote.sql			\
+	square_parens.f90				\
 	state_machine.v					\
 	static_array.c					\
 	stdcall.f						\
@@ -226,10 +264,15 @@ test_sources = \
 	strings.rb						\
 	structure.f						\
 	tabindent.py					\
+	test.go							\
 	test.py							\
 	test.vhd						\
+	test_input.rs					\
+	test_input2.rs					\
+	titles.t2t						\
 	traffic_signal.v				\
 	traits.php						\
+	ui5.controller.js				\
 	union.f							\
 	value.f							\
 	whitespaces.php					\
@@ -241,5 +284,3 @@ TAGS_LOG_COMPILER = $(srcdir)/runner.sh
 
 TESTS = $(test_results)
 EXTRA_DIST = $(test_sources) $(test_results)
-
-runner.sh: ../../src/geany$(EXEEXT)
